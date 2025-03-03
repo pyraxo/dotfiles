@@ -5,7 +5,7 @@ usage() {
     echo "Usage: .p <command> [arguments]"
     echo ""
     echo "Commands:"
-    echo "  i, install <template-name> [destination-folder]    Copy template from ../@templates to current directory or specified folder"
+    echo "  i, install <template-name> [destination-folder]    Copy template from templates directory to current directory or specified folder"
     echo ""
     exit 1
 }
@@ -17,8 +17,14 @@ handle_install() {
         usage
     fi
 
+    # Get the directory where this script is located
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
+    # Use environment variable if set, otherwise use templates directory in the same folder as the script
+    TEMPLATES_DIR="${TEMPLATES_DIR:-$SCRIPT_DIR/templates}"
+    
     TEMPLATE_NAME="$1"
-    TEMPLATE_PATH="$HOME/Projects/@templates/$TEMPLATE_NAME"
+    TEMPLATE_PATH="$TEMPLATES_DIR/$TEMPLATE_NAME"
     CURRENT_DIR=$(pwd)
     
     # Check if a destination folder was specified
@@ -31,7 +37,8 @@ handle_install() {
     
     # Check if template exists
     if [ ! -d "$TEMPLATE_PATH" ]; then
-        echo "Error: Template '$TEMPLATE_NAME' not found in @templates"
+        echo "Error: Template '$TEMPLATE_NAME' not found in templates directory"
+        echo "Templates directory: $TEMPLATES_DIR"
         exit 1
     fi
     
