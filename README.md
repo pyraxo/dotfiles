@@ -1,4 +1,4 @@
-# @cli - Command Line Interface Tools
+# @cli
 
 Super-opinioniated collection of custom command-line tools for my own use.
 
@@ -7,7 +7,7 @@ Super-opinioniated collection of custom command-line tools for my own use.
 1. Clone this repository:
 
    ```bash
-   git clone https://github.com/yourusername/@cli.git
+   git clone https://github.com/pyraxo/cli-scripts.git @cli
    ```
 
 2. Run the initialization script:
