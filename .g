@@ -182,7 +182,16 @@ handle_remote_origin() {
         usage
     fi
     
-    git remote set-url origin "https://github.com/$1.git"
+    # Check if origin remote exists
+    if git remote get-url origin &>/dev/null; then
+        # Origin exists, update it
+        git remote set-url origin "https://github.com/$1.git"
+        echo "Updated remote origin URL https://github.com/$1"
+    else
+        # Origin doesn't exist, add it
+        git remote add origin "https://github.com/$1.git"
+        echo "Added remote origin URL https://github.com/$1"
+    fi
 }
 
 # Function to handle reset commands
