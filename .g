@@ -74,6 +74,15 @@ handle_init() {
         rm -rf .git
     fi
 
+    # Check if .git directory exists and has commits
+    if [ -d ".git" ] && [ "$force_flag" = false ]; then
+        # Check if there are any commits
+        if git rev-parse --verify HEAD &>/dev/null; then
+            echo "Error: Repository already has commits. Use -f flag to reinitialize."
+            return 1
+        fi
+    fi
+
     # Initialize git repository
     git init
 
