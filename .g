@@ -10,6 +10,7 @@ usage() {
     echo "                                  (-f: resets .git folder"
     echo "  cm, commit <message>            Commit with message (no quotes needed)"
     echo "  ac <message>                    Add all files and commit (no quotes needed)"
+    echo "  acp <message>                   Add all files, commit, and push (no quotes needed)"
     echo "  p, push                         Push to remote"
     echo "  pl, pull                        Pull from remote"
     echo "  f, fetch                        Fetch from remote"
@@ -21,6 +22,7 @@ usage() {
     echo "  ro <url>                        Set remote origin URL (just username/repo)"
     echo "  rs                              Reset soft (undo last commit, keep changes)"
     echo "  rh                              Reset hard (discard all changes)"
+    echo "  rw                              Rewind - reset hard to previous commit (HEAD^1)"
     echo "  am <message>                    Amend last commit with new message"
     echo ""
     exit 1
@@ -128,6 +130,20 @@ handle_add_commit() {
     git commit -m "$message"
 }
 
+# Function to handle add, commit and push command
+handle_add_commit_push() {
+    if [ -z "$1" ]; then
+        echo "Error: Commit message is required"
+        usage
+    fi
+    
+    # Join all arguments as the commit message
+    message="$*"
+    git add .
+    git commit -m "$message"
+    git push
+}
+
 # Function to handle push command
 handle_push() {
     git push
@@ -212,6 +228,24 @@ handle_reset_hard() {
     git reset --hard HEAD
 }
 
+handle_reset_rewind() {
+    # Get the commit message of the commit that will be removed
+    commit_msg=$(git log -1 --pretty=%B HEAD)
+    
+    echo "WARNING: This will permanently remove the most recent commit:"
+    echo "  \"$commit_msg\""
+    echo "and discard all changes in your working directory."
+    echo ""
+    read -p "Are you sure you want to continue? (y/N): " confirm
+    
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        git reset --hard HEAD^1
+        echo "Successfully rewound to previous commit."
+    else
+        echo "Rewind operation cancelled."
+    fi
+}
+
 # Function to handle amend commit
 handle_amend_commit() {
     if [ -z "$1" ]; then
@@ -241,6 +275,10 @@ case "$1" in
     "ac")
         shift
         handle_add_commit "$@"
+        ;;
+    "acp")
+        shift
+        handle_add_commit_push "$@"
         ;;
     "p"|"push")
         handle_push
@@ -279,6 +317,9 @@ case "$1" in
         ;;
     "rh")
         handle_reset_hard
+        ;;
+    "rw")
+        handle_reset_rewind
         ;;
     "am")
         shift
