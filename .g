@@ -6,6 +6,7 @@ usage() {
     echo ""
     echo "Commands:"
     echo "  cl, clone <repo> [directory]    Clone a repository (tries git:, then https:)"
+    echo "                                  (Works with full GitHub URLs including /blob/...)"
     echo "  i, init [-f]                    Initialize git repo, create initial commit"
     echo "                                  (-f: resets .git folder"
     echo "  cm, commit <message>            Commit with message (no quotes needed)"
@@ -36,6 +37,17 @@ handle_clone() {
     fi
 
     repo=$1
+    
+    # If repo is a full GitHub URL with blob or tree paths, extract just the org/repo part
+    if [[ $repo == *"github.com"* ]]; then
+        # Extract just the org/repo part from GitHub URLs
+        # This handles URLs like:
+        # - https://github.com/username/repo/blob/main/path/to/file
+        # - https://github.com/username/repo/tree/main/path/to/dir
+        # - https://github.com/username/repo
+        repo=$(echo "$repo" | sed -E 's|https?://github.com/([^/]+/[^/]+).*|\1|')
+    fi
+    
     dir=${2:-$(basename "$repo" .git)}  # Use second argument as directory, or extract from repo name
 
     # If repo doesn't contain a full URL, assume it's a GitHub repository

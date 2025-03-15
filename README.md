@@ -1,6 +1,6 @@
 # @cli
 
-Super-opinioniated collection of custom command-line tools for my own use.
+Super-opinionated collection of custom command-line tools for my own use.
 
 ## Installation
 
