@@ -88,8 +88,8 @@ handle_chat() {
     # Check for API key
     if [ -z "$OPENAI_API_KEY" ]; then
         # Try to load from config file
-        if [ -f "$HOME/.config/cw/config" ]; then
-            source "$HOME/.config/cw/config"
+        if [ -f "$HOME/.config/@cli/config" ]; then
+            source "$HOME/.config/@cli/config"
         fi
         
         # If still not set, prompt for it
@@ -99,9 +99,9 @@ handle_chat() {
             read -r OPENAI_API_KEY
             
             # Save to config for future use
-            mkdir -p "$HOME/.config/cw"
-            echo "OPENAI_API_KEY=\"$OPENAI_API_KEY\"" > "$HOME/.config/cw/config"
-            chmod 600 "$HOME/.config/cw/config"
+            mkdir -p "$HOME/.config/@cli"
+            echo "OPENAI_API_KEY=\"$OPENAI_API_KEY\"" > "$HOME/.config/@cli/config"
+            chmod 600 "$HOME/.config/@cli/config"
         fi
     fi
     

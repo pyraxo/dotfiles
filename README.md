@@ -50,6 +50,25 @@ A streamlined interface for common Git operations.
 - `rw` - Rewind - reset hard to previous commit (HEAD^1)
 - `am <message>` - Amend last commit with new message
 
+### API Key Manager (.k)
+
+A tool for managing API keys across projects, syncing between local `.env` files and a global config.
+
+```bash
+.k <command>
+```
+
+#### Commands
+
+- `(no command)` - Sync API keys between .env and global config
+- `i` - Interactive mode to add new API keys
+- `l` - List all stored API keys
+
+The tool stores API keys in `~/.config/@cli/config` and can sync them with local `.env` files. When adding keys interactively, you can:
+
+- Choose from common options (anthropic, openai)
+- Enter any custom key type (e.g. 'deepseek' becomes DEEPSEEK_API_KEY)
+
 ### Project Template Manager (.p)
 
 A tool for managing and installing project templates.
