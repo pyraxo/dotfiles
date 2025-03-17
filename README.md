@@ -89,29 +89,3 @@ By default, templates are looked for in the `templates` directory within the @cl
 # In your .zshrc, .bashrc, or similar:
 export TEMPLATES_DIR="/path/to/your/templates"
 ```
-
-## Why Use These Tools?
-
-- **Simplicity**: Reduces complex commands to simple, memorable shortcuts
-- **Consistency**: Standardizes common operations across projects
-- **Efficiency**: Saves time on repetitive tasks
-- **Flexibility**: Works with your existing workflow and tools
-
-## Project Structure
-
-```
-@cli/
-├── .g                  # Git helper script
-├── .p                  # Project template manager
-├── init.sh             # Installation script
-├── .gitignore          # Git ignore file
-└── README.md           # This documentation
-```
-
-## Contributing
-
-Contributions are welcome! Feel free to submit pull requests with new features, improvements, or bug fixes.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
