@@ -25,6 +25,7 @@ usage() {
     echo "  rh                              Reset hard (discard all changes)"
     echo "  rw                              Rewind - reset hard to previous commit (HEAD^1)"
     echo "  am <message>                    Amend last commit with new message"
+    echo "  loc                             Show lines of code added/removed in past 24h"
     echo ""
     exit 1
 }
@@ -270,6 +271,32 @@ handle_amend_commit() {
     git commit --amend -m "$message"
 }
 
+# Function to handle loc command
+handle_loc() {
+    # Get the date 24 hours ago in ISO 8601 format
+    since_date=$(date -v-24H +"%Y-%m-%d %H:%M:%S")
+    
+    # Run git log with --numstat to get the number of lines added/removed
+    # --since="24 hours ago" filters commits from last 24 hours
+    # awk sums up the total lines added/removed
+    stats=$(git log --numstat --since="$since_date" | awk '
+        /^[0-9]/ {
+            added += $1
+            removed += $2
+        }
+        END {
+            print "+" added " -" removed
+        }
+    ')
+    
+    if [ -z "$stats" ]; then
+        echo "No code changes in the past 24 hours"
+    else
+        echo "Lines of code changed in past 24h:"
+        echo "$stats"
+    fi
+}
+
 # Main command router
 case "$1" in
     "cl"|"clone")
@@ -336,6 +363,9 @@ case "$1" in
     "am")
         shift
         handle_amend_commit "$@"
+        ;;
+    "loc")
+        handle_loc
         ;;
     *)
         usage
