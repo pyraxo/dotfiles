@@ -8,6 +8,7 @@ usage() {
     echo "  (no command)  Sync API keys between .env and config"
     echo "  i            Interactive mode to add new API keys"
     echo "  l            List all stored API keys"
+    echo "  l <name>     Show value for specific API key (e.g. '.k l deepseek' for DEEPSEEK_API_KEY)"
     echo "  -h, --help   Show this help message"
     echo ""
     echo "Description:"
@@ -160,17 +161,36 @@ list_keys() {
     init_files
     CONFIG_FILE="$HOME/.config/@cli/config"
     
-    echo "Stored API Keys:"
-    echo "---------------"
-    if [ -s "$CONFIG_FILE" ]; then
-        while IFS='=' read -r key value; do
-            # Only show key names, not the actual values
-            if [[ "$key" =~ (_API_KEY|_SECRET)$ ]]; then
-                echo "$key"
+    if [ -n "$1" ]; then
+        # Convert input to uppercase for matching
+        search_key=$(echo "$1" | tr '[:lower:]' '[:upper:]')
+        # Look for either _API_KEY or _SECRET suffix
+        key_pattern="${search_key}_API_KEY\|${search_key}_SECRET"
+        
+        # Try to find and display the key value
+        if [ -s "$CONFIG_FILE" ]; then
+            value=$(grep -E "^(${search_key}_API_KEY|${search_key}_SECRET)=" "$CONFIG_FILE" | cut -d'"' -f2)
+            if [ -n "$value" ]; then
+                echo "$value"
+            else
+                echo "No API key found for: $search_key"
             fi
-        done < "$CONFIG_FILE"
+        else
+            echo "No API keys found in config"
+        fi
     else
-        echo "No API keys found in config"
+        echo "Stored API Keys:"
+        echo "---------------"
+        if [ -s "$CONFIG_FILE" ]; then
+            while IFS='=' read -r key value; do
+                # Only show key names, not the actual values
+                if [[ "$key" =~ (_API_KEY|_SECRET)$ ]]; then
+                    echo "$key"
+                fi
+            done < "$CONFIG_FILE"
+        else
+            echo "No API keys found in config"
+        fi
     fi
 }
 
@@ -180,7 +200,7 @@ case "$1" in
         interactive_mode
         ;;
     "l")
-        list_keys
+        list_keys "$2"
         ;;
     "-h"|"--help")
         usage
