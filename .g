@@ -26,6 +26,7 @@ usage() {
     echo "  rw                              Rewind - reset hard to previous commit (HEAD^1)"
     echo "  am <message>                    Amend last commit with new message"
     echo "  loc                             Show lines of code added/removed in past 24h"
+    echo "  loc --all                       Compare your recent changes with historical changes"
     echo ""
     exit 1
 }
@@ -273,27 +274,72 @@ handle_amend_commit() {
 
 # Function to handle loc command
 handle_loc() {
-    # Get the date 24 hours ago in ISO 8601 format
-    since_date=$(date -v-24H +"%Y-%m-%d %H:%M:%S")
-    
-    # Run git log with --numstat to get the number of lines added/removed
-    # --since="24 hours ago" filters commits from last 24 hours
-    # awk sums up the total lines added/removed
-    stats=$(git log --numstat --since="$since_date" | awk '
-        /^[0-9]/ {
-            added += $1
-            removed += $2
-        }
-        END {
-            print "+" added " -" removed
-        }
-    ')
-    
-    if [ -z "$stats" ]; then
-        echo "No code changes in the past 24 hours"
+    # Check if --all flag is provided
+    if [ "$1" = "--all" ]; then
+        # Get current user's email
+        current_user=$(git config user.email)
+        
+        # Get stats for current user (lifetime)
+        your_stats=$(git log --numstat --author="$current_user" | awk '
+            /^[0-9]/ {
+                added += $1
+                removed += $2
+            }
+            END {
+                if (added > 0 || removed > 0) {
+                    print "+" added " -" removed
+                }
+            }
+        ')
+        
+        # Get stats for all other users in the repository history
+        others_stats=$(git log --numstat --author="^(?!$current_user).*" | awk '
+            /^[0-9]/ {
+                added += $1
+                removed += $2
+            }
+            END {
+                if (added > 0 || removed > 0) {
+                    print "+" added " -" removed
+                }
+            }
+        ')
+        
+        echo "Your changes (lifetime):"
+        if [ -z "$your_stats" ]; then
+            echo "No changes"
+        else
+            echo "$your_stats"
+        fi
+        
+        echo -e "\nHistorical changes (all other contributors):"
+        if [ -z "$others_stats" ]; then
+            echo "No changes"
+        else
+            echo "$others_stats"
+        fi
     else
-        echo "Lines of code changed in past 24h:"
-        echo "$stats"
+        # Original functionality for showing last 24h changes
+        # Get the date 24 hours ago in ISO 8601 format
+        since_date=$(date -v-24H +"%Y-%m-%d %H:%M:%S")
+        
+        # Run git log with --numstat to get the number of lines added/removed
+        stats=$(git log --numstat --since="$since_date" | awk '
+            /^[0-9]/ {
+                added += $1
+                removed += $2
+            }
+            END {
+                print "+" added " -" removed
+            }
+        ')
+        
+        if [ -z "$stats" ]; then
+            echo "No code changes in the past 24 hours"
+        else
+            echo "Lines of code changed in past 24h:"
+            echo "$stats"
+        fi
     fi
 }
 
@@ -365,7 +411,8 @@ case "$1" in
         handle_amend_commit "$@"
         ;;
     "loc")
-        handle_loc
+        shift
+        handle_loc "$@"
         ;;
     *)
         usage
