@@ -18,7 +18,7 @@ handle_install() {
     fi
 
     # Get the directory where this script is located
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
     
     # Use environment variable if set, otherwise use templates directory in the same folder as the script
     TEMPLATES_DIR="${TEMPLATES_DIR:-$SCRIPT_DIR/templates}"

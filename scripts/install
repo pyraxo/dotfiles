@@ -1,0 +1,64 @@
+#!/bin/bash
+
+REPO_DIR=$(cd "$(dirname "$0")/.." && pwd)
+ZSHRC="$HOME/.zshrc"
+REPO_ZSHRC="$REPO_DIR/config/.zshrc"
+BIN_DIR="$REPO_DIR/bin"
+
+echo ''
+
+info () {
+  printf "\r  [ \033[00;34m..\033[0m ] $1\n"
+}
+
+user () {
+  printf "\r  [ \033[0;33m??\033[0m ] $1\n"
+}
+
+success () {
+  printf "\r\033[2K  [ \033[00;32mOK\033[0m ] $1\n"
+}
+
+fail () {
+  printf "\r\033[2K  [\033[0;31mFAIL\033[0m] $1\n"
+  echo ''
+}
+
+# 1. Ensure ~/.zshrc sources repo's config/.zshrc or is a symlink
+if [ -f "$ZSHRC" ] && [ ! -L "$ZSHRC" ]; then
+    # Check if it already sources the repo zshrc
+    if ! grep -q "source $REPO_ZSHRC" "$ZSHRC"; then
+        echo "" >> "$ZSHRC"
+        echo "# Source dotfiles repo zshrc" >> "$ZSHRC"
+        echo "source $REPO_ZSHRC" >> "$ZSHRC"
+        success "appended source line to $ZSHRC"
+    else
+        fail "custom zshrc already exists"
+    fi
+elif [ ! -e "$ZSHRC" ]; then
+    ln -s "$REPO_ZSHRC" "$ZSHRC"
+    success "Created symlink: $ZSHRC -> $REPO_ZSHRC"
+else
+    fail "symlink already exists"
+fi
+
+# 2. Add bin to ~/.zshrc PATH if not already present
+if ! grep -q "export PATH=\"$REPO_DIR/bin:\$PATH\"" "$ZSHRC"; then
+    echo "" >> "$ZSHRC"
+    echo "# Add dotfiles bin to PATH" >> "$ZSHRC"
+    echo "export PATH=\"$REPO_DIR/bin:\$PATH\"" >> "$ZSHRC"
+    success "added bin directory to PATH in $ZSHRC"
+else
+    fail "bin already in PATH"
+fi
+
+# Sanity check, check if `dot` command is available
+if command -v dot >/dev/null 2>&1; then
+    success "dot command is available"
+else
+    fail "dot command not found in PATH"
+    exit 1
+fi
+
+# find the installers and run them iteratively
+find . -name install.sh | while read installer ; do sh -c "${installer}" ; done
