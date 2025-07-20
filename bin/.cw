@@ -14,6 +14,9 @@ usage() {
     echo "  Hidden files are included in the context, but common non-relevant"
     echo "  directories (.git, node_modules, etc.) are excluded."
     echo ""
+    echo "Options:"
+    echo "  -h, --help    Show this help message and exit"
+    echo ""
     exit 1
 }
 

@@ -4,9 +4,12 @@
 usage() {
     echo "Usage: .b [-t] [directory]"
     echo ""
-    echo "Adds a directory to PATH. If no directory is specified, adds the current directory."
     echo "Options:"
-    echo "  -t    Temporary: Only add to current session PATH (not to .zshrc)"
+    echo "  -h, --help    Show this help message and exit"
+    echo "  -t            Temporary: Only add to current session PATH (not to .zshrc)"
+    echo ""
+    echo "Description:"
+    echo "  Adds a directory to PATH."
     echo ""
     exit 1
 }
@@ -81,6 +84,9 @@ while [[ $# -gt 0 ]]; do
         -t)
             persist=false
             shift
+            ;;
+        --help|-h)
+            usage
             ;;
         *)
             if [ -z "$dir" ]; then

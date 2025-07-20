@@ -5,8 +5,13 @@ usage() {
     echo "Usage: .p <command> [arguments]"
     echo ""
     echo "Commands:"
-    echo "  i, install <template-name> [destination-folder]    Copy template from templates directory to current directory or specified folder"
+    echo "  i, install <name> [destination]    Copy template to current directory or specified folder"
     echo ""
+    echo "Description:"
+    echo "  Copy template from templates directory to current directory or specified folder"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help    Show this help message and exit"
     exit 1
 }
 
@@ -91,6 +96,9 @@ shift
 case "$COMMAND" in
     i|install)
         handle_install "$@"
+        ;;
+    --help|-h)
+        usage
         ;;
     *)
         echo "Error: Unknown command '$COMMAND'"

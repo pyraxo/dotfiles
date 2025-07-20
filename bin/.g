@@ -28,6 +28,12 @@ usage() {
     echo "  loc                             Show lines of code added/removed in past 24h"
     echo "  loc --all                       Compare your recent changes with historical changes"
     echo ""
+    echo "Options:"
+    echo "  -h, --help    Show this help message and exit"
+    echo ""
+    echo "Description:"
+    echo "  Git commands shorthands."
+    echo ""
     exit 1
 }
 

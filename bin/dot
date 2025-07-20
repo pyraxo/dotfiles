@@ -8,7 +8,7 @@
 
 set -e
 
-parentDirectory="$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
+parentDirectory="$(cd "$( dirname "$0" )" && pwd -P)"
 dotfilesDirectory="$(cd "$( dirname "$parentDirectory" )" && pwd -P)"
 
 displayUsageAndExit() {
@@ -19,6 +19,62 @@ displayUsageAndExit() {
 	echo "Options:"
 	echo "  -e, --edit    Open dotfiles directory for editing"
 	echo "  -h, --help    Show this help message and exit"
+	echo "  -l, --list    List all available commands in bin directory"
+	exit
+}
+
+listCommands() {
+	echo "Available commands in bin directory:"
+	echo ""
+	
+	# Find all executable files in the bin directory (including hidden files)
+	for file in "$parentDirectory"/* "$parentDirectory"/.*; do
+		# Skip if not a file or not executable, or if file doesn't exist
+		[ -f "$file" ] && [ -x "$file" ] || continue
+		
+		filename=$(basename "$file")
+		
+		# Skip special directories and the dot command itself
+		[ "$filename" = "." ] || [ "$filename" = ".." ] || [ "$filename" = "dot" ] && continue
+		
+		# Extract description dynamically from the file
+		description=""
+		if [ -f "$file" ]; then
+			# Method 1: Look for "Description:" in usage function
+			description=$(awk '/usage\(\)/,/^}/ {
+				if (/Description:/) {
+					getline; 
+					gsub(/^[[:space:]]*echo[[:space:]]*"/, "");
+					gsub(/^[[:space:]]*/, "");
+					gsub(/".*$/, "");
+					if (length($0) > 0) print $0;
+					exit
+				}
+			}' "$file" 2>/dev/null)
+			
+			# Method 2: Look for descriptive text after usage line but before Commands/Options
+			if [ -z "$description" ]; then
+				description=$(awk '/usage\(\)/,/^}/ {
+					if (/echo.*Usage:/) { found_usage=1; next }
+					if (found_usage && /echo.*""/) next
+					if (found_usage && (/Commands:|Options:/ || /^[[:space:]]*echo[[:space:]]*"[[:space:]]*$"/)) exit
+					if (found_usage && /echo.*[A-Za-z]/) {
+						gsub(/^[[:space:]]*echo[[:space:]]*"/, "");
+						gsub(/".*$/, "");
+						gsub(/^[[:space:]]*/, "");
+						if (length($0) > 3) {print $0; exit}
+					}
+				}' "$file" 2>/dev/null)
+			fi
+		else
+			description="Command-line utility"
+		fi
+		
+		# Format and display
+		printf "  %-12s %s\n" "$filename" "$description"
+	done
+	echo ""
+	echo "Run any command with -h or --help for detailed usage information."
 	exit
 }
 
@@ -30,6 +86,9 @@ while test $# -gt 0; do
 		"-e"|"--edit")
 			exec "$EDITOR" "$dotfilesDirectory"
 			exit
+			;;
+		"-l"|"--list")
+			listCommands
 			;;
 		*)
 			echo "Invalid option: $1"
