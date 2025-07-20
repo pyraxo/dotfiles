@@ -1,7 +1,5 @@
 #!/bin/bash
 
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-
 REPO_DIR=$(cd "$(dirname "$0")/.." && pwd)
 ZSHRC="$HOME/.zshrc"
 REPO_ZSHRC="$REPO_DIR/config/.zshrc"
@@ -25,6 +23,10 @@ fail () {
   printf "\r\033[2K  [\033[0;31mFAIL\033[0m] $1\n"
   echo ''
 }
+
+info "Installing omz..."
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+success "omz installed"
 
 # 1. Ensure ~/.zshrc sources repo's config/.zshrc or is a symlink
 if [ -f "$ZSHRC" ] && [ ! -L "$ZSHRC" ]; then

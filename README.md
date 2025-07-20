@@ -14,7 +14,7 @@ My dotfiles, inspired by [holman's](https://github.com/holman/dotfiles).
 
    ```bash
    cd scripts
-   ./init.sh
+   ./install
    ```
 
 This will add the project directory to your PATH, allowing you to use the tools from anywhere.
