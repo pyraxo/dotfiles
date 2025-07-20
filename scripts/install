@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
 REPO_DIR=$(cd "$(dirname "$0")/.." && pwd)
 ZSHRC="$HOME/.zshrc"
 REPO_ZSHRC="$REPO_DIR/config/.zshrc"

@@ -1,5 +1,7 @@
 # dotfiles
 
+My dotfiles, inspired by [holman's](https://github.com/holman/dotfiles).
+
 ## Installation
 
 1. Clone this repository:
