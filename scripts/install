@@ -24,6 +24,45 @@ fail () {
   echo ''
 }
 
+# Check if zsh is installed and install if missing
+if ! command -v zsh >/dev/null 2>&1; then
+    info "zsh not found, attempting to install..."
+    
+    # Detect OS
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - use Homebrew
+        if command -v brew >/dev/null 2>&1; then
+            brew install zsh
+        else
+            fail "Homebrew not found. Please install Homebrew first"
+            exit 1
+        fi
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux - use apt/yum/dnf based on distro
+        if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y zsh
+        elif command -v yum >/dev/null 2>&1; then
+            sudo yum install -y zsh
+        elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y zsh
+        else
+            fail "Could not detect package manager. Please install zsh manually"
+            exit 1
+        fi
+    else
+        fail "Unsupported operating system"
+        exit 1
+    fi
+
+    # Verify installation
+    if command -v zsh >/dev/null 2>&1; then
+        success "zsh installed successfully"
+    else
+        fail "zsh installation failed"
+        exit 1
+    fi
+fi
+
 info "Installing omz..."
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 success "omz installed"
@@ -55,6 +94,10 @@ if ! grep -q "export PATH=\"$REPO_DIR/bin:\$PATH\"" "$ZSHRC"; then
 else
     fail "bin already in PATH"
 fi
+
+# Source the updated .zshrc
+source "$ZSHRC"
+info "Sourced updated .zshrc"
 
 # Sanity check, check if `dot` command is available
 if command -v dot >/dev/null 2>&1; then
