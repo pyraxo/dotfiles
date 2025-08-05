@@ -20,6 +20,7 @@ displayUsageAndExit() {
 	echo "  -e, --edit    Open dotfiles directory for editing"
 	echo "  -h, --help    Show this help message and exit"
 	echo "  -l, --list    List all available commands in bin directory"
+	echo "  -f, --force   Force update by discarding local changes"
 	exit
 }
 
@@ -78,6 +79,9 @@ listCommands() {
 	exit
 }
 
+# Flag to track if force update is requested
+force_update=false
+
 while test $# -gt 0; do
 	case "$1" in
 		"-h"|"--help")
@@ -89,6 +93,9 @@ while test $# -gt 0; do
 			;;
 		"-l"|"--list")
 			listCommands
+			;;
+		"-f"|"--force")
+			force_update=true
 			;;
 		*)
 			echo "Invalid option: $1"
@@ -102,7 +109,17 @@ export ZSH=$dotfilesDirectory
 
 # Update dotfiles themselves
 echo "› git pull"
-git -C $ZSH pull
+if [ "$force_update" = true ]; then
+	# Force pull by discarding local changes
+	git -C "$ZSH" reset --hard HEAD
+	git -C "$ZSH" pull
+else
+	# Try normal pull first
+	if ! git -C "$ZSH" pull; then
+		echo "Pull failed. Use -f or --force to discard local changes and force update"
+		exit 1
+	fi
+fi
 
 # Set macOS defaults
 $ZSH/macos/set-defaults
