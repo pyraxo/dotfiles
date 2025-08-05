@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Install volta (Node.js version manager)
+if ! command -v volta >/dev/null 2>&1; then
+    echo "Installing volta..."
+    curl https://get.volta.sh | bash
+    export VOLTA_HOME="$HOME/.volta"
+    export PATH="$VOLTA_HOME/bin:$PATH"
+else
+    echo "volta already installed"
+fi
+
+# Install uv (Python package installer)
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+else
+    echo "uv already installed"
+fi

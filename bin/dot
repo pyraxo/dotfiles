@@ -21,6 +21,7 @@ displayUsageAndExit() {
 	echo "  -h, --help    Show this help message and exit"
 	echo "  -l, --list    List all available commands in bin directory"
 	echo "  -f, --force   Force update by discarding local changes"
+	echo "  -x <script>   Execute a script from the scripts directory"
 	exit
 }
 
@@ -96,6 +97,23 @@ while test $# -gt 0; do
 			;;
 		"-f"|"--force")
 			force_update=true
+			;;
+		"-x")
+			shift
+			if [ -z "$1" ]; then
+				echo "Error: No script specified"
+				exit 1
+			fi
+			script_path="$dotfilesDirectory/scripts/$1"
+			if [ ! -f "$script_path" ]; then
+				echo "Error: Script '$1' not found in scripts directory"
+				exit 1
+			fi
+			if [ ! -x "$script_path" ]; then
+				echo "Error: Script '$1' is not executable"
+				exit 1
+			fi
+			exec "$script_path"
 			;;
 		*)
 			echo "Invalid option: $1"
