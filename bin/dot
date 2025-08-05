@@ -124,20 +124,16 @@ fi
 # Set macOS defaults if on macOS
 if [ "$OSTYPE" = "darwin"* ]; then
     $ZSH/macos/set-defaults.sh
+
+    # Check if brew is installed
+    if ! command -v brew >/dev/null 2>&1; then
+        echo "Homebrew not installed. Skipping brew updates."
+    else
+        # Upgrade homebrew
+        echo "› brew update"
+        brew update
+
+        echo "› brew upgrade" 
+        brew upgrade
+    fi
 fi
-
-# Install homebrew
-$ZSH/homebrew/install.sh 2>&1
-
-# Upgrade homebrew
-echo "› brew update"
-brew update
-
-echo "› brew upgrade"
-brew upgrade
-
-# Install software
-echo "› script/install"
-$ZSH/script/install
-
-source $ZSH/.zshrc
