@@ -122,8 +122,8 @@ else
 fi
 
 # Set macOS defaults if on macOS
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    $ZSH/macos/set-defaults
+if [ "$OSTYPE" = "darwin"* ]; then
+    $ZSH/macos/set-defaults.sh
 fi
 
 # Install homebrew
@@ -139,3 +139,5 @@ brew upgrade
 # Install software
 echo "› script/install"
 $ZSH/script/install
+
+source $ZSH/.zshrc
