@@ -39,6 +39,14 @@ init_files() {
     if [ ! -f ".env" ]; then
         touch ".env"
     fi
+
+    # Ensure .env is ignored by git if a .gitignore exists
+    if [ -f ".gitignore" ]; then
+        if ! grep -qF ".env" ".gitignore"; then
+            echo ".env" >> ".gitignore"
+            echo "Added .env to .gitignore"
+        fi
+    fi
 }
 
 # Function to get all API keys from a file
