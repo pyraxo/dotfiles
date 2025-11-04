@@ -13,6 +13,7 @@ brew 'gh'
 brew 'git-filter-repo'
 brew 'nmap'
 brew 'uv'
+brew 'go'
 
 cask 'aerospace'
 cask 'flashspace'
