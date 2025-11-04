@@ -14,6 +14,8 @@ brew 'git-filter-repo'
 brew 'nmap'
 brew 'uv'
 brew 'go'
+brew 'bash'
+brew 'zsh'
 
 cask 'aerospace'
 cask 'flashspace'
