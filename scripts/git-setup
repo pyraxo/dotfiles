@@ -1,0 +1,218 @@
+#!/bin/bash
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Detect OS
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    OS="macos"
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    OS="linux"
+else
+    echo "Unsupported operating system: $OSTYPE"
+    exit 1
+fi
+
+# Check if whiptail is available, try to install if not
+HAS_WHIPTAIL=false
+if command -v whiptail >/dev/null 2>&1; then
+    HAS_WHIPTAIL=true
+else
+    echo "whiptail not found, attempting to install..."
+    if [[ "$OS" == "macos" ]]; then
+        if command -v brew >/dev/null 2>&1; then
+            brew install newt
+            HAS_WHIPTAIL=true
+        else
+            echo "Homebrew not found. Falling back to simple prompts."
+        fi
+    elif [[ "$OS" == "linux" ]]; then
+        if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y whiptail
+            HAS_WHIPTAIL=true
+        else
+            echo "Could not install whiptail. Falling back to simple prompts."
+        fi
+    fi
+fi
+
+# Get current git config values
+CURRENT_NAME=$(git config --global user.name 2>/dev/null || echo "")
+CURRENT_EMAIL=$(git config --global user.email 2>/dev/null || echo "")
+CURRENT_EDITOR=$(git config --global core.editor 2>/dev/null || echo "")
+CURRENT_DEFAULTBRANCH=$(git config --global init.defaultBranch 2>/dev/null || echo "")
+
+# Function to get input using whiptail
+get_input_whiptail() {
+    local prompt="$1"
+    local default="$2"
+    local title="$3"
+
+    whiptail --title "$title" --inputbox "$prompt" 10 60 "$default" 3>&1 1>&2 2>&3
+}
+
+# Function to get input using simple read
+get_input_simple() {
+    local prompt="$1"
+    local default="$2"
+    local result
+
+    if [ -n "$default" ]; then
+        read -p "$prompt [$default]: " result
+        echo "${result:-$default}"
+    else
+        read -p "$prompt: " result
+        echo "$result"
+    fi
+}
+
+# Function to get input (uses whiptail if available, otherwise simple read)
+get_input() {
+    local prompt="$1"
+    local default="$2"
+    local title="${3:-Git Configuration}"
+
+    if [ "$HAS_WHIPTAIL" = true ]; then
+        get_input_whiptail "$prompt" "$default" "$title"
+    else
+        get_input_simple "$prompt" "$default"
+    fi
+}
+
+# Welcome message
+if [ "$HAS_WHIPTAIL" = true ]; then
+    whiptail --title "Git Configuration Setup" --msgbox "This script will help you configure your Git settings.\n\nCurrent configuration:\nName: ${CURRENT_NAME:-Not set}\nEmail: ${CURRENT_EMAIL:-Not set}\nEditor: ${CURRENT_EDITOR:-Not set}\nDefault Branch: ${CURRENT_DEFAULTBRANCH:-Not set}" 15 70
+else
+    echo -e "${BLUE}=== Git Configuration Setup ===${NC}"
+    echo ""
+    echo "Current configuration:"
+    echo "  Name: ${CURRENT_NAME:-Not set}"
+    echo "  Email: ${CURRENT_EMAIL:-Not set}"
+    echo "  Editor: ${CURRENT_EDITOR:-Not set}"
+    echo "  Default Branch: ${CURRENT_DEFAULTBRANCH:-Not set}"
+    echo ""
+fi
+
+# Get user name
+NAME=$(get_input "Enter your Git user name:" "$CURRENT_NAME" "Git User Name")
+if [ -z "$NAME" ]; then
+    echo -e "${RED}Error: Name cannot be empty${NC}"
+    exit 1
+fi
+
+# Get user email
+EMAIL=$(get_input "Enter your Git email:" "$CURRENT_EMAIL" "Git Email")
+if [ -z "$EMAIL" ]; then
+    echo -e "${RED}Error: Email cannot be empty${NC}"
+    exit 1
+fi
+
+# Get preferred editor (optional)
+EDITOR_INPUT=$(get_input "Enter your preferred Git editor (leave empty to skip):" "$CURRENT_EDITOR" "Git Editor")
+
+# Get default branch name (optional)
+DEFAULTBRANCH=$(get_input "Enter default branch name (leave empty to skip):" "$CURRENT_DEFAULTBRANCH" "Default Branch")
+
+# Confirm before applying
+if [ "$HAS_WHIPTAIL" = true ]; then
+    CONFIRM_MSG="Please confirm the following Git configuration:\n\n"
+    CONFIRM_MSG+="Name: $NAME\n"
+    CONFIRM_MSG+="Email: $EMAIL\n"
+    [ -n "$EDITOR_INPUT" ] && CONFIRM_MSG+="Editor: $EDITOR_INPUT\n"
+    [ -n "$DEFAULTBRANCH" ] && CONFIRM_MSG+="Default Branch: $DEFAULTBRANCH\n"
+    CONFIRM_MSG+="\nApply these settings?"
+
+    if ! whiptail --title "Confirm Configuration" --yesno "$CONFIRM_MSG" 15 70; then
+        echo "Configuration cancelled."
+        exit 0
+    fi
+else
+    echo ""
+    echo -e "${YELLOW}Please confirm the following Git configuration:${NC}"
+    echo "  Name: $NAME"
+    echo "  Email: $EMAIL"
+    [ -n "$EDITOR_INPUT" ] && echo "  Editor: $EDITOR_INPUT"
+    [ -n "$DEFAULTBRANCH" ] && echo "  Default Branch: $DEFAULTBRANCH"
+    echo ""
+    read -p "Apply these settings? (y/n): " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo "Configuration cancelled."
+        exit 0
+    fi
+fi
+
+# Apply configuration
+echo -e "${YELLOW}Applying Git configuration...${NC}"
+
+git config --global user.name "$NAME"
+echo -e "${GREEN}✓ Set user.name to '$NAME'${NC}"
+
+git config --global user.email "$EMAIL"
+echo -e "${GREEN}✓ Set user.email to '$EMAIL'${NC}"
+
+if [ -n "$EDITOR_INPUT" ]; then
+    git config --global core.editor "$EDITOR_INPUT"
+    echo -e "${GREEN}✓ Set core.editor to '$EDITOR_INPUT'${NC}"
+fi
+
+if [ -n "$DEFAULTBRANCH" ]; then
+    git config --global init.defaultBranch "$DEFAULTBRANCH"
+    echo -e "${GREEN}✓ Set init.defaultBranch to '$DEFAULTBRANCH'${NC}"
+fi
+
+# Optional: Set some recommended defaults
+if [ "$HAS_WHIPTAIL" = true ]; then
+    if whiptail --title "Additional Settings" --yesno "Would you like to apply some recommended Git settings?\n\n- Auto-correct typos\n- Colorized output\n- Better diff algorithm\n- Auto-setup remote tracking" 15 70; then
+        APPLY_DEFAULTS=true
+    else
+        APPLY_DEFAULTS=false
+    fi
+else
+    echo ""
+    read -p "Apply recommended Git settings? (y/n): " apply_defaults
+    if [[ "$apply_defaults" =~ ^[Yy]$ ]]; then
+        APPLY_DEFAULTS=true
+    else
+        APPLY_DEFAULTS=false
+    fi
+fi
+
+if [ "$APPLY_DEFAULTS" = true ]; then
+    echo -e "${YELLOW}Applying recommended settings...${NC}"
+
+    # Auto-correct typos
+    git config --global help.autocorrect 10
+    echo -e "${GREEN}✓ Enabled auto-correct for Git commands${NC}"
+
+    # Colorized output
+    git config --global color.ui auto
+    echo -e "${GREEN}✓ Enabled colorized output${NC}"
+
+    # Better diff algorithm
+    git config --global diff.algorithm histogram
+    echo -e "${GREEN}✓ Set diff algorithm to histogram${NC}"
+
+    # Auto-setup remote tracking
+    git config --global push.autoSetupRemote true
+    echo -e "${GREEN}✓ Enabled auto-setup of remote tracking${NC}"
+
+    # Use rebase for pulls
+    git config --global pull.rebase true
+    echo -e "${GREEN}✓ Set pull strategy to rebase${NC}"
+
+    # Prune on fetch
+    git config --global fetch.prune true
+    echo -e "${GREEN}✓ Enabled automatic pruning on fetch${NC}"
+fi
+
+echo ""
+echo -e "${GREEN}Git configuration complete!${NC}"
+echo ""
+echo "You can view your configuration with: git config --global --list"
