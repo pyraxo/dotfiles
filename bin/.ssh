@@ -1,0 +1,178 @@
+#!/bin/bash
+
+# Function to display usage
+usage() {
+    echo "Usage: .ssh [command]"
+    echo ""
+    echo "Commands:"
+    echo "  ex           Export SSH public key to remote machine (interactive)"
+    echo "  -h, --help   Show this help message"
+    echo ""
+    echo "Description:"
+    echo "  Manage SSH connections and keys"
+    echo "  - Export your SSH public key to a remote machine's authorized_keys"
+    echo ""
+    exit 1
+}
+
+# Function to find the default SSH public key
+find_ssh_key() {
+    local ssh_dir="$HOME/.ssh"
+
+    # Common SSH key names in order of preference
+    local key_names=("id_ed25519" "id_rsa" "id_ecdsa" "id_dsa")
+
+    for key in "${key_names[@]}"; do
+        if [ -f "$ssh_dir/${key}.pub" ]; then
+            echo "$ssh_dir/${key}.pub"
+            return 0
+        fi
+    done
+
+    # If no common key found, try to find any .pub file
+    local first_pub=$(find "$ssh_dir" -maxdepth 1 -name "*.pub" -type f 2>/dev/null | head -n 1)
+    if [ -n "$first_pub" ]; then
+        echo "$first_pub"
+        return 0
+    fi
+
+    return 1
+}
+
+# Function to export SSH key to remote machine
+export_key() {
+    echo "SSH Key Export - Interactive Mode"
+    echo "=================================="
+    echo ""
+
+    # Find SSH public key
+    local default_key=$(find_ssh_key)
+
+    if [ -z "$default_key" ]; then
+        echo "Error: No SSH public key found in ~/.ssh/"
+        echo "Please generate one first using: ssh-keygen -t ed25519"
+        exit 1
+    fi
+
+    echo "Found SSH public key: $default_key"
+    echo ""
+
+    # Ask if they want to use the default key
+    read -p "Use this key? (y/n) [y]: " use_default
+    use_default=${use_default:-y}
+
+    if [[ ! "$use_default" =~ ^[Yy]$ ]]; then
+        echo ""
+        echo "Available public keys in ~/.ssh/:"
+        find ~/.ssh -maxdepth 1 -name "*.pub" -type f 2>/dev/null | while read -r key; do
+            echo "  - $(basename "$key")"
+        done
+        echo ""
+        read -p "Enter the name of the key file to use: " custom_key
+
+        if [ -f "$HOME/.ssh/${custom_key}" ]; then
+            default_key="$HOME/.ssh/${custom_key}"
+        elif [ -f "$HOME/.ssh/${custom_key}.pub" ]; then
+            default_key="$HOME/.ssh/${custom_key}.pub"
+        else
+            echo "Error: Key file not found"
+            exit 1
+        fi
+    fi
+
+    # Read the public key content
+    if [ ! -f "$default_key" ]; then
+        echo "Error: Key file does not exist: $default_key"
+        exit 1
+    fi
+
+    local pub_key_content=$(cat "$default_key")
+    echo ""
+    echo "Public key to export:"
+    echo "---------------------"
+    echo "$pub_key_content"
+    echo "---------------------"
+    echo ""
+
+    # Get remote host details
+    read -p "Enter username: " username
+    if [ -z "$username" ]; then
+        echo "Error: Username cannot be empty"
+        exit 1
+    fi
+
+    read -p "Enter hostname or IP address: " hostname
+    if [ -z "$hostname" ]; then
+        echo "Error: Hostname cannot be empty"
+        exit 1
+    fi
+
+    read -p "Enter port (default: 22): " port
+    port=${port:-22}
+
+    echo ""
+    echo "Connection details:"
+    echo "  User: $username"
+    echo "  Host: $hostname"
+    echo "  Port: $port"
+    echo ""
+    read -p "Proceed with key export? (y/n) [y]: " confirm
+    confirm=${confirm:-y}
+
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo "Aborted."
+        exit 0
+    fi
+
+    echo ""
+    echo "Exporting SSH key to remote machine..."
+    echo "You will be prompted for the remote user's password."
+    echo ""
+
+    # Create the SSH command to add the key to authorized_keys
+    # We use ssh to execute commands remotely
+    ssh -p "$port" "${username}@${hostname}" "mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '$pub_key_content' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo "Success! SSH key has been exported to ${username}@${hostname}"
+        echo "You should now be able to connect without a password:"
+        echo "  ssh -p $port ${username}@${hostname}"
+        echo ""
+
+        # Ask if they want to test the connection
+        read -p "Test the connection now? (y/n) [n]: " test_conn
+        test_conn=${test_conn:-n}
+
+        if [[ "$test_conn" =~ ^[Yy]$ ]]; then
+            echo ""
+            echo "Testing connection..."
+            ssh -p "$port" "${username}@${hostname}" "echo 'Connection successful!'"
+        fi
+    else
+        echo ""
+        echo "Error: Failed to export SSH key"
+        echo "Please check your connection details and try again"
+        exit 1
+    fi
+}
+
+# Main script logic
+case "$1" in
+    "ex"|"export")
+        export_key
+        ;;
+    "-h"|"--help")
+        usage
+        ;;
+    "")
+        echo "Error: No command specified"
+        echo ""
+        usage
+        ;;
+    *)
+        echo "Unknown command: $1"
+        echo ""
+        usage
+        ;;
+esac
