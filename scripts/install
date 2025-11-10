@@ -95,9 +95,9 @@ else
     fail "bin already in PATH"
 fi
 
-# Source the updated .zshrc
-source "$ZSHRC"
-info "Sourced updated .zshrc"
+# Add bin to current PATH for this session (don't source full zshrc in bash)
+export PATH="$REPO_DIR/bin:$PATH"
+info "Added bin to PATH for current session"
 
 # Sanity check, check if `dot` command is available
 if command -v dot >/dev/null 2>&1; then
@@ -110,21 +110,86 @@ fi
 # find the installers and run them iteratively
 find . -name install.sh | while read installer ; do sh -c "${installer}" ; done
 
-# Ask if user wants to run AI tools setup
+# Ask user about installation method
 echo ''
-user "Would you like to install AI development tools (Codex CLI & Claude Code)? (y/n)"
-read -r response
-if [[ "$response" =~ ^[Yy]$ ]]; then
-    # Detect OS and run appropriate ai-setup script
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        info "Running macOS AI tools setup..."
-        bash "$REPO_DIR/macos/ai-setup.sh"
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        info "Running Ubuntu AI tools setup..."
-        bash "$REPO_DIR/ubuntu/ai-setup.sh"
-    else
-        fail "Unsupported operating system for AI tools setup"
-    fi
-else
-    info "Skipping AI tools setup"
-fi
+user "Choose installation method:"
+echo "  1) Nix + Home Manager (recommended, declarative)"
+echo "  2) Traditional scripts (Homebrew/apt)"
+read -r choice
+
+case $choice in
+    1)
+        # Nix installation path
+        info "Setting up with Nix + Home Manager..."
+
+        # Check if Nix is installed
+        if ! command -v nix >/dev/null 2>&1; then
+            info "Nix not found. Installing Nix..."
+            echo ''
+            user "Install using Determinate Systems installer? (recommended) (y/n)"
+            read -r nix_installer
+
+            if [[ "$nix_installer" =~ ^[Yy]$ ]]; then
+                curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+            else
+                info "Using official Nix installer..."
+                sh <(curl -L https://nixos.org/nix/install) --daemon
+            fi
+
+            # Source nix
+            if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
+                . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+            fi
+
+            success "Nix installed successfully"
+        else
+            success "Nix already installed"
+        fi
+
+        # Determine which config to use
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            CONFIG="home"
+            info "Detected macOS, using #home configuration"
+        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            CONFIG="lab"
+            info "Detected Linux, using #lab configuration"
+        else
+            fail "Unsupported operating system"
+            exit 1
+        fi
+
+        # Run Home Manager
+        info "Applying Home Manager configuration..."
+        nix run home-manager/master -- switch --flake "$REPO_DIR#$CONFIG"
+        success "Home Manager setup complete!"
+
+        info "See INSTALL-NIX.md for more information"
+        ;;
+    2)
+        # Traditional installation path
+        info "Using traditional installation scripts..."
+
+        # Ask if user wants to run AI tools setup
+        echo ''
+        user "Would you like to install AI development tools (Codex CLI & Claude Code)? (y/n)"
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            # Detect OS and run appropriate ai-setup script
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                info "Running macOS AI tools setup..."
+                bash "$REPO_DIR/macos/ai-setup.sh"
+            elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+                info "Running Ubuntu AI tools setup..."
+                bash "$REPO_DIR/ubuntu/ai-setup.sh"
+            else
+                fail "Unsupported operating system for AI tools setup"
+            fi
+        else
+            info "Skipping AI tools setup"
+        fi
+        ;;
+    *)
+        fail "Invalid choice. Exiting."
+        exit 1
+        ;;
+esac

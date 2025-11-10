@@ -1,6 +1,25 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
+
+# Require bash 4+ for associative arrays
+if ((BASH_VERSINFO[0] < 4)); then
+    echo "This script requires bash 4 or higher. Current version: $BASH_VERSION"
+    echo "Installing bash via Homebrew..."
+
+    # Check if Homebrew is installed
+    if ! command -v brew >/dev/null 2>&1; then
+        echo "Homebrew not found. Installing Homebrew first..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    fi
+
+    # Install modern bash
+    brew install bash
+
+    # Re-run this script with modern bash
+    exec /opt/homebrew/bin/bash "$0" "$@"
+fi
 
 # Colors for output
 RED='\033[0;31m'

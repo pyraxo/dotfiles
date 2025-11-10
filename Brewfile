@@ -1,23 +1,45 @@
 cask_args appdir: "/Applications"
 
-tap 'homebrew/bundle'
-
-brew 'cloudflared'
-brew 'imagemagick'
-brew 'redis'
-brew 'wg'
-brew 'wireguard-tools'
-brew 'bitwarden-cli'
-brew 'cmake'
+# Development tools
+brew 'git'
 brew 'gh'
-brew 'git-filter-repo'
-brew 'nmap'
-brew 'uv'
 brew 'go'
+brew 'terraform'
+brew 'cmake'
+
+# CLI utilities
+brew 'fd'
+brew 'ripgrep'
+brew 'fzf'
+brew 'jq'
+brew 'yq'
+brew 'tree-sitter'
+brew 'difftastic'
+brew 'gum'
+
+# Media/imaging
+brew 'ffmpeg'
+brew 'imagemagick'
+brew 'exiftool'
+
+# System tools
+brew 'nmap'
+brew 'scrcpy'
+brew 'smartmontools'
+brew 'cloudflared'
+brew 'bitwarden-cli'
+
+# Modern replacements
+brew 'neovim'
+
+# Language version managers
+brew 'uv'  # Python
+
+# Shell
 brew 'bash'
 brew 'zsh'
 
-cask 'aerospace'
+# GUI Applications (casks)
 cask 'flashspace'
 cask 'linearmouse'
 cask 'whatsapp'
