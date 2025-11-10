@@ -4,62 +4,137 @@ Super-opinionated collection of custom command-line tools for my own use.
 
 ## Available Tools
 
+### PATH Manager (.b)
+
+Add directories to PATH with persistent or temporary options.
+
+```bash
+.b [-t] [directory]
+```
+
+**Options:**
+- `-t` - Temporary: Only add to current session PATH (not to .zshrc)
+- No args - Adds current directory to PATH
+
+### Brew Install Manager (.bi)
+
+Install packages with brew and automatically add them to Brewfile.
+
+```bash
+.bi [options] <package>
+```
+
+**Options:**
+- `-c, --cask` - Force install as a cask
+- `-t, --tap` - Force add as a tap
+- `-f, --formula` - Force install as a formula
+- Auto-detects package type if no option specified
+
+### Chat with Files (.cw)
+
+Chat with files in the current directory as context using an LLM.
+
+```bash
+.cw [file, folder name, or glob]
+```
+
+Uses glimpse to scan files and prepare context, then opens an interactive chat session with OpenAI. Excludes common non-relevant directories (.git, node_modules, etc.).
+
 ### Git Helper (.g)
 
-A streamlined interface for common Git operations.
+Streamlined interface for common Git operations.
 
 ```bash
 .g <command> [arguments]
 ```
 
-#### Commands
-
-- `cl, clone <repo> [directory]` - Clone a repository (tries git:, then https:)
-- `i, init [-f]` - Initialize git repo, create initial commit (-f: resets .git folder)
-- `cm, commit <message>` - Commit with message (no quotes needed)
-- `ac <message>` - Add all files and commit (no quotes needed)
-- `acp <message>` - Add all files, commit, and push (no quotes needed)
-- `p, push` - Push to remote
-- `pl, pull` - Pull from remote
-- `f, fetch` - Fetch from remote
+**Commands:**
+- `cl, clone <repo> [dir]` - Clone repository (tries git:, then https:)
+- `i, init [-f]` - Initialize git repo, create initial commit
+- `cm, commit <msg>` - Commit with message (no quotes needed)
+- `ac <msg>` - Add all and commit
+- `acp <msg>` - Add all, commit, and push
+- `p, push` / `pl, pull` / `f, fetch` - Remote operations
 - `b` - List branches
-- `bc <branch-name>` - Create and checkout new branch
-- `bs <branch-name>` - Switch to branch
-- `bd <branch-name>` - Delete branch
-- `bm <branch-name>` - Merge branch into current branch
-- `ro <url>` - Set remote origin URL (just username/repo)
-- `rs` - Reset soft (undo last commit, keep changes)
+- `bc <name>` - Create and checkout branch
+- `bs <name>` - Switch branch
+- `bd <name>` - Delete branch
+- `bm <name>` - Merge branch
+- `ro <url>` - Set remote origin URL
+- `rs` - Reset soft (undo commit, keep changes)
 - `rh` - Reset hard (discard all changes)
-- `rw` - Rewind - reset hard to previous commit (HEAD^1)
-- `am <message>` - Amend last commit with new message
+- `rw` - Rewind to previous commit
+- `am <msg>` - Amend last commit
 
 ### API Key Manager (.k)
 
-A tool for managing API keys across projects, syncing between local `.env` files and a global config.
+Manage API keys across projects, syncing between local `.env` files and global config.
 
 ```bash
-.k <command>
+.k [command]
 ```
 
-#### Commands
-
+**Commands:**
 - `(no command)` - Sync API keys between .env and global config
 - `i` - Interactive mode to add new API keys
 - `l` - List all stored API keys
 
-The tool stores API keys in `~/.config/@cli/config` and can sync them with local `.env` files. When adding keys interactively, you can:
+Stores API keys in `~/.config/@cli/config`. Supports common providers (anthropic, openai) and custom key types.
 
-- Choose from common options (anthropic, openai)
-- Enter any custom key type (e.g. 'deepseek' becomes DEEPSEEK_API_KEY)
+### Project Initializer (.pi)
 
-### Project Template Manager (.p)
-
-A tool for managing and installing project templates.
+Interactive command to prepare projects for AI agentic coding.
 
 ```bash
-.p <command> [arguments]
+.pi [init]
 ```
 
-#### Commands
+**Commands:**
+- `(no command)` - Prepare existing project for AI agentic coding
+- `init` - Create new project and prepare it
 
-- `i, install <template-name> [destination-folder]` - Copy template from the templates directory to current directory or specified folder
+**Sets up:**
+- Claude Code Infrastructure (cc-infra)
+- Beads issue tracking system
+- Codex-1up documentation
+- Docs folder structure with guidelines
+
+### SSH Manager (.ssh)
+
+Manage SSH connections and keys.
+
+```bash
+.ssh <command>
+```
+
+**Commands:**
+- `ex` - Export SSH public key to remote machine (interactive)
+
+Finds default SSH key and walks through interactive export process.
+
+### Tmux Session Manager (.t)
+
+Quickly manage tmux sessions.
+
+```bash
+.t [session]
+```
+
+**Commands:**
+- `(no command)` - List all tmux sessions
+- `<session>` - Attach to session by number or name
+
+### Dotfiles Manager (dot)
+
+Manage dotfiles installation and updates.
+
+```bash
+dot [options]
+```
+
+**Options:**
+- `-e, --edit` - Open dotfiles directory for editing
+- `-l, --list` - List all available commands in bin directory
+- `-f, --force` - Force update by discarding local changes
+- `-x <script>` - Execute a script from the scripts directory
+- No args - Update dotfiles with git pull and run system updates

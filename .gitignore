@@ -26,3 +26,11 @@ Temporary Items
 .apdisk
 
 .env
+
+tmp/
+
+# Nix
+result
+result-*
+.direnv/
+flake.lock
