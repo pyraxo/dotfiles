@@ -109,3 +109,22 @@ fi
 
 # find the installers and run them iteratively
 find . -name install.sh | while read installer ; do sh -c "${installer}" ; done
+
+# Ask if user wants to run AI tools setup
+echo ''
+user "Would you like to install AI development tools (Codex CLI & Claude Code)? (y/n)"
+read -r response
+if [[ "$response" =~ ^[Yy]$ ]]; then
+    # Detect OS and run appropriate ai-setup script
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        info "Running macOS AI tools setup..."
+        bash "$REPO_DIR/macos/ai-setup.sh"
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        info "Running Ubuntu AI tools setup..."
+        bash "$REPO_DIR/ubuntu/ai-setup.sh"
+    else
+        fail "Unsupported operating system for AI tools setup"
+    fi
+else
+    info "Skipping AI tools setup"
+fi
