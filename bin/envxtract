@@ -69,7 +69,7 @@ def should_skip_directory(path: Path) -> bool:
 
 
 def find_env_files(start_dir: str = '.') -> List[str]:
-    """Recursively find all .env* files, excluding common directories."""
+    """Recursively find all .env* files, excluding common directories and .env.example files."""
     env_files = []
     start_path = Path(start_dir).resolve()
 
@@ -78,6 +78,9 @@ def find_env_files(start_dir: str = '.') -> List[str]:
             if filepath.is_file():
                 # Skip if in excluded directory
                 if should_skip_directory(filepath.relative_to(start_path)):
+                    continue
+                # Skip .env.example files (these are typically committed to git)
+                if filepath.name.endswith('.env.example'):
                     continue
                 # Store relative path
                 rel_path = filepath.relative_to(start_path)
@@ -99,7 +102,7 @@ def extract_env_files() -> None:
 
     if not env_files:
         print("Error: No .env* files found in current directory")
-        print("Searched recursively, excluding common directories like node_modules/")
+        print("Searched recursively, excluding common directories and .env.example files")
         sys.exit(1)
 
     print(f"Found {len(env_files)} environment file(s):")
@@ -289,7 +292,7 @@ def print_usage():
     print()
     print("Description:")
     print("  Securely backup and restore environment files")
-    print("  - Recursively scans for .env* files")
+    print("  - Recursively scans for .env* files (excludes .env.example)")
     print("  - Compresses and encrypts with password")
     print("  - Stores in tmp/ directory (gitignored)")
     print("  - Backs up existing files before restoring")

@@ -153,7 +153,7 @@ envxtract [command]
 - `-h, --help` - Show help message
 
 **Features:**
-- Recursively scans for all `.env*` files
+- Recursively scans for all `.env*` files (excludes `.env.example`)
 - Password-based encryption using AES-256 with PBKDF2 key derivation
 - Compression with gzip for smaller backup files
 - Excludes common directories (node_modules, .git, vendor, etc.)
