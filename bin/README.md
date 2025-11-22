@@ -138,3 +138,34 @@ dot [options]
 - `-f, --force` - Force update by discarding local changes
 - `-x <script>` - Execute a script from the scripts directory
 - No args - Update dotfiles with git pull and run system updates
+
+### Environment File Backup (envxtract)
+
+Securely backup and restore environment files across a project.
+
+```bash
+envxtract [command]
+```
+
+**Commands:**
+- `(no args)` - Extract (backup) all .env* files in current directory
+- `--load <file>` - Restore .env files from backup
+- `-h, --help` - Show help message
+
+**Features:**
+- Recursively scans for all `.env*` files
+- Password-based encryption using AES-256 with PBKDF2 key derivation
+- Compression with gzip for smaller backup files
+- Excludes common directories (node_modules, .git, vendor, etc.)
+- Stores backups in gitignored `tmp/` directory
+- Automatically backs up existing files as `{filename}-backup-YYYYMMDD` during restore
+- Backup format: `tmp/YYYYMMDD-envxtract-XXXXXX.envx`
+
+**Examples:**
+```bash
+# Backup all .env files
+envxtract
+
+# Restore from backup
+envxtract --load tmp/20251122-envxtract-a4f2c9.envx
+```

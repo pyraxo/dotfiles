@@ -1,0 +1,332 @@
+#!/usr/bin/env python3
+
+"""
+envxtract - Environment File Backup & Restore Tool
+
+Securely backup and restore environment files (.env*) across a project directory.
+"""
+
+import os
+import sys
+import json
+import gzip
+import base64
+import secrets
+import getpass
+from typing import List
+from datetime import datetime
+from pathlib import Path
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.fernet import Fernet
+
+
+# Directories to exclude from scanning
+EXCLUDED_DIRS = {
+    'node_modules', '.git', 'vendor', 'venv', '__pycache__',
+    'dist', 'build', '.cache', 'target', '.next', '.nuxt',
+    'coverage', '.pytest_cache', '.tox', 'env', '.venv'
+}
+
+# File format version
+FORMAT_VERSION = "1.0"
+
+
+def derive_key(password: str, salt: bytes) -> bytes:
+    """Derive an encryption key from a password using PBKDF2."""
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+    return key
+
+
+def encrypt_data(data: bytes, password: str) -> bytes:
+    """Encrypt data with a password. Returns salt + encrypted_data."""
+    salt = secrets.token_bytes(16)
+    key = derive_key(password, salt)
+    f = Fernet(key)
+    encrypted = f.encrypt(data)
+    return salt + encrypted
+
+
+def decrypt_data(encrypted_with_salt: bytes, password: str) -> bytes:
+    """Decrypt data with a password. Expects salt + encrypted_data."""
+    salt = encrypted_with_salt[:16]
+    encrypted = encrypted_with_salt[16:]
+    key = derive_key(password, salt)
+    f = Fernet(key)
+    return f.decrypt(encrypted)
+
+
+def should_skip_directory(path: Path) -> bool:
+    """Check if a directory should be skipped during scanning."""
+    parts = path.parts
+    return any(excluded in parts for excluded in EXCLUDED_DIRS)
+
+
+def find_env_files(start_dir: str = '.') -> List[str]:
+    """Recursively find all .env* files, excluding common directories."""
+    env_files = []
+    start_path = Path(start_dir).resolve()
+
+    for pattern in ['**/*.env*', '**/.env*']:
+        for filepath in start_path.glob(pattern):
+            if filepath.is_file():
+                # Skip if in excluded directory
+                if should_skip_directory(filepath.relative_to(start_path)):
+                    continue
+                # Store relative path
+                rel_path = filepath.relative_to(start_path)
+                env_files.append(str(rel_path))
+
+    # Remove duplicates and sort
+    return sorted(set(env_files))
+
+
+def extract_env_files() -> None:
+    """Extract (backup) all .env files in current directory."""
+    print("envxtract - Environment File Backup")
+    print("=" * 40)
+    print()
+
+    # Find all .env files
+    current_dir = os.getcwd()
+    env_files = find_env_files(current_dir)
+
+    if not env_files:
+        print("Error: No .env* files found in current directory")
+        print("Searched recursively, excluding common directories like node_modules/")
+        sys.exit(1)
+
+    print(f"Found {len(env_files)} environment file(s):")
+    for f in env_files:
+        print(f"  - {f}")
+    print()
+
+    # Read all files
+    files_data = {}
+    for rel_path in env_files:
+        full_path = os.path.join(current_dir, rel_path)
+        try:
+            with open(full_path, 'r') as f:
+                files_data[rel_path] = f.read()
+        except Exception as e:
+            print(f"Error reading {rel_path}: {e}")
+            sys.exit(1)
+
+    # Create backup structure
+    backup_data = {
+        "version": FORMAT_VERSION,
+        "extracted_at": datetime.now().isoformat(),
+        "extracted_from": current_dir,
+        "files": files_data
+    }
+
+    # Prompt for password (twice)
+    print("Enter encryption password:")
+    password1 = getpass.getpass("Password: ")
+    password2 = getpass.getpass("Confirm password: ")
+
+    if password1 != password2:
+        print("Error: Passwords do not match")
+        sys.exit(1)
+
+    if len(password1) < 8:
+        print("Warning: Password is short. Consider using at least 8 characters.")
+
+    print()
+    print("Compressing and encrypting...")
+
+    # Convert to JSON, compress, encrypt
+    json_data = json.dumps(backup_data, indent=2).encode('utf-8')
+    compressed_data = gzip.compress(json_data, compresslevel=9)
+
+    try:
+        encrypted_data = encrypt_data(compressed_data, password1)
+    except Exception as e:
+        print(f"Error during encryption: {e}")
+        sys.exit(1)
+
+    # Generate filename
+    timestamp = datetime.now().strftime('%Y%m%d')
+    random_hex = secrets.token_hex(3)  # 6 characters
+    filename = f"{timestamp}-envxtract-{random_hex}.envx"
+
+    # Ensure tmp/ directory exists
+    tmp_dir = os.path.join(current_dir, 'tmp')
+    os.makedirs(tmp_dir, exist_ok=True)
+
+    # Write encrypted file
+    output_path = os.path.join(tmp_dir, filename)
+    try:
+        with open(output_path, 'wb') as f:
+            f.write(encrypted_data)
+    except Exception as e:
+        print(f"Error writing backup file: {e}")
+        sys.exit(1)
+
+    print(f"✓ Backup created: tmp/{filename}")
+    print()
+    print(f"To restore: envxtract --load tmp/{filename}")
+
+
+def restore_env_files(backup_path: str) -> None:
+    """Restore .env files from an encrypted backup."""
+    print("envxtract - Environment File Restore")
+    print("=" * 40)
+    print()
+
+    # Check if backup file exists
+    if not os.path.exists(backup_path):
+        print(f"Error: Backup file not found: {backup_path}")
+        sys.exit(1)
+
+    # Prompt for password
+    password = getpass.getpass("Enter decryption password: ")
+    print()
+
+    # Read and decrypt
+    try:
+        with open(backup_path, 'rb') as f:
+            encrypted_data = f.read()
+    except Exception as e:
+        print(f"Error reading backup file: {e}")
+        sys.exit(1)
+
+    try:
+        print("Decrypting and decompressing...")
+        compressed_data = decrypt_data(encrypted_data, password)
+        json_data = gzip.decompress(compressed_data)
+        backup_data = json.loads(json_data.decode('utf-8'))
+    except Exception as e:
+        print(f"Error: Failed to decrypt/decompress backup")
+        print(f"Details: {e}")
+        print("(Wrong password or corrupted file)")
+        sys.exit(1)
+
+    # Validate backup structure
+    if 'version' not in backup_data or 'files' not in backup_data:
+        print("Error: Invalid backup file format")
+        sys.exit(1)
+
+    files_to_restore = backup_data['files']
+    print(f"Backup contains {len(files_to_restore)} file(s)")
+    print(f"Created: {backup_data.get('extracted_at', 'unknown')}")
+    print(f"Source: {backup_data.get('extracted_from', 'unknown')}")
+    print()
+
+    # Check which files already exist
+    current_dir = os.getcwd()
+    existing_files = []
+    for rel_path in files_to_restore.keys():
+        full_path = os.path.join(current_dir, rel_path)
+        if os.path.exists(full_path):
+            existing_files.append(rel_path)
+
+    if existing_files:
+        print("Warning: The following files will be overwritten:")
+        for f in existing_files:
+            print(f"  - {f}")
+        print()
+        print("Existing files will be backed up with -backup-YYYYMMDD suffix")
+        print()
+        response = input("Continue? (y/n): ").strip().lower()
+        if response not in ['y', 'yes']:
+            print("Aborted.")
+            sys.exit(0)
+        print()
+
+    # Restore files
+    restored_count = 0
+    backed_up_count = 0
+    today = datetime.now().strftime('%Y%m%d')
+
+    for rel_path, content in files_to_restore.items():
+        full_path = os.path.join(current_dir, rel_path)
+
+        # Create parent directories if needed
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+        # Backup existing file if it exists
+        if os.path.exists(full_path):
+            backup_name = f"{full_path}-backup-{today}"
+            try:
+                os.rename(full_path, backup_name)
+                backed_up_count += 1
+                print(f"✓ Backed up: {rel_path} → {os.path.basename(backup_name)}")
+            except Exception as e:
+                print(f"✗ Error backing up {rel_path}: {e}")
+                continue
+
+        # Write restored file
+        try:
+            with open(full_path, 'w') as f:
+                f.write(content)
+            restored_count += 1
+            print(f"✓ Restored: {rel_path}")
+        except Exception as e:
+            print(f"✗ Error restoring {rel_path}: {e}")
+
+    print()
+    print("=" * 40)
+    print(f"Summary: Restored {restored_count} file(s)")
+    if backed_up_count > 0:
+        print(f"         Backed up {backed_up_count} existing file(s)")
+
+
+def print_usage():
+    """Print usage information."""
+    print("Usage: envxtract [command]")
+    print()
+    print("Commands:")
+    print("  (no args)         Extract (backup) all .env* files in current directory")
+    print("  --load <file>     Restore .env files from backup")
+    print("  -h, --help        Show this help message")
+    print()
+    print("Description:")
+    print("  Securely backup and restore environment files")
+    print("  - Recursively scans for .env* files")
+    print("  - Compresses and encrypts with password")
+    print("  - Stores in tmp/ directory (gitignored)")
+    print("  - Backs up existing files before restoring")
+    print()
+    print("Examples:")
+    print("  envxtract                           # Backup all .env files")
+    print("  envxtract --load tmp/20251122-envxtract-a4f2c9.envx")
+
+
+def main():
+    """Main entry point."""
+    if len(sys.argv) == 1:
+        # No arguments: extract mode
+        extract_env_files()
+    elif len(sys.argv) == 2:
+        arg = sys.argv[1]
+        if arg in ['-h', '--help']:
+            print_usage()
+        else:
+            print(f"Error: Unknown command '{arg}'")
+            print()
+            print_usage()
+            sys.exit(1)
+    elif len(sys.argv) == 3:
+        if sys.argv[1] == '--load':
+            restore_env_files(sys.argv[2])
+        else:
+            print(f"Error: Unknown command '{sys.argv[1]}'")
+            print()
+            print_usage()
+            sys.exit(1)
+    else:
+        print("Error: Too many arguments")
+        print()
+        print_usage()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
