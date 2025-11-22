@@ -109,3 +109,11 @@ The installer will detect and skip if already present. If you want a fresh insta
 rm -rf ~/.oh-my-zsh
 ./install.sh
 ```
+
+### envxtract missing cryptography library
+If you get an import error when running `envxtract`:
+```bash
+pip3 install cryptography
+# or
+uv pip install cryptography
+```

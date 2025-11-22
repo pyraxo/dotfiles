@@ -16,9 +16,21 @@ import getpass
 from typing import List
 from datetime import datetime
 from pathlib import Path
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.fernet import Fernet
+
+# Check for cryptography library
+try:
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    from cryptography.fernet import Fernet
+except ImportError:
+    print("Error: Required 'cryptography' library not found")
+    print()
+    print("Install it with:")
+    print("  pip3 install cryptography")
+    print("  # or")
+    print("  uv pip install cryptography")
+    print()
+    sys.exit(1)
 
 
 # Directories to exclude from scanning

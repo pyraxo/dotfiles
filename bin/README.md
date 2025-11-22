@@ -161,6 +161,10 @@ envxtract [command]
 - Automatically backs up existing files as `{filename}-backup-YYYYMMDD` during restore
 - Backup format: `tmp/YYYYMMDD-envxtract-XXXXXX.envx`
 
+**Requirements:**
+- Python 3.8+
+- `cryptography` library: `pip3 install cryptography` or `uv pip install cryptography`
+
 **Examples:**
 ```bash
 # Backup all .env files
