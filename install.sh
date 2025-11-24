@@ -64,11 +64,23 @@ esac
 
 echo ""
 
+# Install zsh if on Linux and not already installed
+if [ "$SETUP_TYPE" = "lab" ]; then
+    info "Checking for zsh..."
+    if ! command -v zsh >/dev/null 2>&1; then
+        info "Installing zsh..."
+        sudo apt-get install -y zsh
+        success "zsh installed"
+    else
+        success "zsh already installed"
+    fi
+fi
+
 # Install Oh My Zsh
 info "Checking for Oh My Zsh..."
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
     info "Installing Oh My Zsh..."
-    RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
     success "Oh My Zsh installed"
 else
     success "Oh My Zsh already installed"
@@ -107,6 +119,22 @@ fi
 
 # Add bin to current session
 export PATH="$REPO_DIR/bin:$PATH"
+
+echo ""
+
+# Generate SSH key if it doesn't exist
+info "Checking for SSH key..."
+if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
+    info "Generating SSH key (id_ed25519)..."
+    ssh-keygen -t ed25519 -f "$HOME/.ssh/id_ed25519" -N ""
+    success "SSH key generated at $HOME/.ssh/id_ed25519"
+    echo ""
+    echo -e "${YELLOW}Your SSH public key:${NC}"
+    cat "$HOME/.ssh/id_ed25519.pub"
+    echo ""
+else
+    success "SSH key already exists"
+fi
 
 echo ""
 

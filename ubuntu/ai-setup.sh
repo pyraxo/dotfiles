@@ -34,6 +34,19 @@ if command -v codex >/dev/null 2>&1; then
     echo -e "${BLUE}OpenAI Codex CLI already installed${NC}"
 else
     echo -e "${YELLOW}Installing OpenAI Codex CLI...${NC}"
+
+    # Configure npm to use global directory in user home to avoid permission issues
+    if [ ! -d "$HOME/.npm-global" ]; then
+        mkdir -p "$HOME/.npm-global"
+        npm config set prefix "$HOME/.npm-global"
+
+        # Add to PATH if not already there
+        if ! grep -q 'npm-global/bin' "$HOME/.zshrc" 2>/dev/null; then
+            echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.zshrc"
+        fi
+        export PATH="$HOME/.npm-global/bin:$PATH"
+    fi
+
     npm install -g @openai/codex
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓ OpenAI Codex CLI installed successfully${NC}"
@@ -42,27 +55,18 @@ else
     fi
 fi
 
-# Install Claude Code (AppImage for Linux)
+# Install Claude Code
 echo ""
-if [ -f "$HOME/.local/bin/claude-code" ] || command -v claude-code >/dev/null 2>&1; then
+if command -v claude >/dev/null 2>&1; then
     echo -e "${BLUE}Claude Code already installed${NC}"
 else
     echo -e "${YELLOW}Installing Claude Code...${NC}"
 
-    # Create local bin directory if it doesn't exist
-    mkdir -p "$HOME/.local/bin"
-
-    # Download and install Claude Code AppImage
-    echo -e "${BLUE}Downloading Claude Code...${NC}"
-    CLAUDE_URL="https://storage.googleapis.com/osprey-downloads-c02f6a0d-347c-492b-a752-3e0651722e97/nest-tagged/2025-04-30/claude-code_2025-04-30_amd64.AppImage"
-
-    if curl -L "$CLAUDE_URL" -o "$HOME/.local/bin/claude-code"; then
-        chmod +x "$HOME/.local/bin/claude-code"
+    if curl -fsSL https://claude.ai/install.sh | bash; then
         echo -e "${GREEN}✓ Claude Code installed successfully${NC}"
-        echo -e "${YELLOW}Note: Make sure $HOME/.local/bin is in your PATH${NC}"
     else
-        echo -e "${RED}✗ Failed to download Claude Code${NC}"
-        echo -e "${YELLOW}You can manually download it from: https://claude.ai/download${NC}"
+        echo -e "${RED}✗ Failed to install Claude Code${NC}"
+        echo -e "${YELLOW}You can manually run: curl -fsSL https://claude.ai/install.sh | bash${NC}"
     fi
 fi
 

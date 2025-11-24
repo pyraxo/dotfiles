@@ -130,8 +130,12 @@ for pkg in "${SPECIAL_PACKAGES[@]}"; do
         cloudflared)
             if ! command -v cloudflared >/dev/null 2>&1; then
                 echo -e "${YELLOW}Installing cloudflared...${NC}"
+                # Add cloudflare gpg key
+                sudo mkdir -p --mode=0755 /usr/share/keyrings
                 curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
-                echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
+                # Add stable repo to apt repositories
+                echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' | sudo tee /etc/apt/sources.list.d/cloudflared.list
+                # Install cloudflared
                 sudo apt-get update
                 sudo apt-get install -y cloudflared
                 echo -e "${GREEN}cloudflared installed successfully${NC}"

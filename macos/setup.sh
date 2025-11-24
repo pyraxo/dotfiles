@@ -57,6 +57,19 @@ success "pnpm installed"
 echo ""
 if ! command -v codex >/dev/null 2>&1; then
     info "Installing Codex CLI..."
+
+    # Configure npm to use global directory in user home to avoid permission issues
+    if [ ! -d "$HOME/.npm-global" ]; then
+        mkdir -p "$HOME/.npm-global"
+        npm config set prefix "$HOME/.npm-global"
+
+        # Add to PATH if not already there
+        if ! grep -q 'npm-global/bin' "$HOME/.zshrc" 2>/dev/null; then
+            echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.zshrc"
+        fi
+        export PATH="$HOME/.npm-global/bin:$PATH"
+    fi
+
     npm install -g @openai/codex
     success "Codex CLI installed"
 else

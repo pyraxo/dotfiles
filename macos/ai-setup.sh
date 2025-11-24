@@ -36,6 +36,19 @@ if command -v codex >/dev/null 2>&1; then
     echo -e "${BLUE}OpenAI Codex CLI already installed${NC}"
 else
     echo -e "${YELLOW}Installing OpenAI Codex CLI...${NC}"
+
+    # Configure npm to use global directory in user home to avoid permission issues
+    if [ ! -d "$HOME/.npm-global" ]; then
+        mkdir -p "$HOME/.npm-global"
+        npm config set prefix "$HOME/.npm-global"
+
+        # Add to PATH if not already there
+        if ! grep -q 'npm-global/bin' "$HOME/.zshrc" 2>/dev/null; then
+            echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.zshrc"
+        fi
+        export PATH="$HOME/.npm-global/bin:$PATH"
+    fi
+
     npm install -g @openai/codex
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓ OpenAI Codex CLI installed successfully${NC}"
@@ -46,12 +59,11 @@ fi
 
 # Install Claude Code
 echo ""
-if brew list --cask claude-code &>/dev/null; then
+if command -v claude >/dev/null 2>&1; then
     echo -e "${BLUE}Claude Code already installed${NC}"
 else
     echo -e "${YELLOW}Installing Claude Code...${NC}"
-    brew install --cask claude-code
-    if [ $? -eq 0 ]; then
+    if curl -fsSL https://claude.ai/install.sh | bash; then
         echo -e "${GREEN}✓ Claude Code installed successfully${NC}"
     else
         echo -e "${RED}✗ Failed to install Claude Code${NC}"
