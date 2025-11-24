@@ -27,7 +27,7 @@ Temporary Items
 
 .env
 
-tmp/
+.tmp/
 
 # Nix
 result

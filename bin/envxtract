@@ -102,7 +102,7 @@ def find_env_files(start_dir: str = '.') -> List[str]:
     return sorted(set(env_files))
 
 
-def extract_env_files() -> None:
+def extract_env_files(output_dir: str = None) -> None:
     """Extract (backup) all .env files in current directory."""
     print("envxtract - Environment File Backup")
     print("=" * 40)
@@ -171,12 +171,19 @@ def extract_env_files() -> None:
     random_hex = secrets.token_hex(3)  # 6 characters
     filename = f"{timestamp}-envxtract-{random_hex}.envx"
 
-    # Ensure tmp/ directory exists
-    tmp_dir = os.path.join(current_dir, 'tmp')
-    os.makedirs(tmp_dir, exist_ok=True)
+    # Determine output directory
+    if output_dir:
+        # Use specified output directory
+        target_dir = os.path.abspath(output_dir)
+    else:
+        # Default to .tmp/ in current directory
+        target_dir = os.path.join(current_dir, '.tmp')
+
+    # Ensure output directory exists
+    os.makedirs(target_dir, exist_ok=True)
 
     # Write encrypted file
-    output_path = os.path.join(tmp_dir, filename)
+    output_path = os.path.join(target_dir, filename)
     try:
         with open(output_path, 'wb') as f:
             f.write(encrypted_data)
@@ -184,9 +191,17 @@ def extract_env_files() -> None:
         print(f"Error writing backup file: {e}")
         sys.exit(1)
 
-    print(f"✓ Backup created: tmp/{filename}")
-    print()
-    print(f"To restore: envxtract --load tmp/{filename}")
+    # Display relative path if it's under current directory
+    try:
+        rel_output = os.path.relpath(output_path, current_dir)
+        print(f"✓ Backup created: {rel_output}")
+        print()
+        print(f"To restore: envxtract --load {rel_output}")
+    except ValueError:
+        # If relpath fails (different drives on Windows), use absolute path
+        print(f"✓ Backup created: {output_path}")
+        print()
+        print(f"To restore: envxtract --load {output_path}")
 
 
 def restore_env_files(backup_path: str) -> None:
@@ -295,29 +310,31 @@ def restore_env_files(backup_path: str) -> None:
 
 def print_usage():
     """Print usage information."""
-    print("Usage: envxtract [command]")
+    print("Usage: envxtract [command] [options]")
     print()
     print("Commands:")
-    print("  (no args)         Extract (backup) all .env* files in current directory")
-    print("  --load <file>     Restore .env files from backup")
-    print("  -h, --help        Show this help message")
+    print("  (no args)              Extract (backup) all .env* files in current directory")
+    print("  --output <dir>         Specify output directory (default: .tmp/)")
+    print("  --load <file>          Restore .env files from backup")
+    print("  -h, --help             Show this help message")
     print()
     print("Description:")
     print("  Securely backup and restore environment files")
     print("  - Recursively scans for .env* files (excludes .env.example)")
     print("  - Compresses and encrypts with password")
-    print("  - Stores in tmp/ directory (gitignored)")
+    print("  - Stores in .tmp/ directory by default (gitignored)")
     print("  - Backs up existing files before restoring")
     print()
     print("Examples:")
-    print("  envxtract                           # Backup all .env files")
-    print("  envxtract --load tmp/20251122-envxtract-a4f2c9.envx")
+    print("  envxtract                                    # Backup all .env files to .tmp/")
+    print("  envxtract --output ~/backups                 # Backup to ~/backups")
+    print("  envxtract --load .tmp/20251125-envxtract-a4f2c9.envx")
 
 
 def main():
     """Main entry point."""
     if len(sys.argv) == 1:
-        # No arguments: extract mode
+        # No arguments: extract mode with default output
         extract_env_files()
     elif len(sys.argv) == 2:
         arg = sys.argv[1]
@@ -331,6 +348,9 @@ def main():
     elif len(sys.argv) == 3:
         if sys.argv[1] == '--load':
             restore_env_files(sys.argv[2])
+        elif sys.argv[1] == '--output':
+            # Extract with custom output directory
+            extract_env_files(output_dir=sys.argv[2])
         else:
             print(f"Error: Unknown command '{sys.argv[1]}'")
             print()
