@@ -31,11 +31,12 @@ PACKAGES=(
     ["git-filter-repo"]="Tool for rewriting git history"
     ["volta"]="Node.js version manager (fast, reliable)"
     ["uv"]="Python package and project manager (fast)"
+    ["docker"]="Docker container platform and tools"
 )
 
 # Create checklist options (package_name "description" status)
 OPTIONS=()
-for pkg in imagemagick redis-server wireguard-tools cmake nmap golang-go build-essential gh cloudflared git-filter-repo volta uv; do
+for pkg in imagemagick redis-server wireguard-tools cmake nmap golang-go build-essential gh cloudflared git-filter-repo volta uv docker; do
     # Check if already installed
     status="OFF"
     if [[ "$pkg" == "build-essential" ]]; then
@@ -95,7 +96,7 @@ for pkg in $SELECTED; do
         imagemagick|redis-server|wireguard-tools|cmake|nmap|golang-go|build-essential)
             APT_PACKAGES+=("$pkg")
             ;;
-        gh|cloudflared|git-filter-repo|volta|uv)
+        gh|cloudflared|git-filter-repo|volta|uv|docker)
             SPECIAL_PACKAGES+=("$pkg")
             ;;
     esac
@@ -177,6 +178,30 @@ for pkg in "${SPECIAL_PACKAGES[@]}"; do
                 echo -e "${GREEN}uv installed successfully${NC}"
             else
                 echo -e "${BLUE}uv already installed${NC}"
+            fi
+            ;;
+        docker)
+            if ! command -v docker >/dev/null 2>&1; then
+                echo -e "${YELLOW}Installing Docker...${NC}"
+                # Install prerequisites
+                sudo apt-get install -y ca-certificates curl
+                sudo install -m 0755 -d /etc/apt/keyrings
+                # Add Docker's official GPG key
+                sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+                sudo chmod a+r /etc/apt/keyrings/docker.asc
+                # Add the repository to Apt sources
+                echo "Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc" | sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null
+                # Update package list and install Docker
+                sudo apt-get update
+                sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+                echo -e "${GREEN}Docker installed successfully${NC}"
+                echo -e "${YELLOW}Note: You may need to add your user to the docker group: sudo usermod -aG docker \$USER${NC}"
+            else
+                echo -e "${BLUE}Docker already installed${NC}"
             fi
             ;;
     esac
