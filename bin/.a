@@ -1,0 +1,135 @@
+#!/bin/bash
+
+# Function to display usage
+usage() {
+    echo "Usage: .a [options]"
+    echo ""
+    echo "Description:"
+    echo "  Manages shell aliases from .aliases file in the dotfiles directory."
+    echo "  Syncs aliases by adding new ones, updating changed ones, and removing"
+    echo "  aliases that are no longer in .aliases."
+    echo ""
+    echo "Options:"
+    echo "  -h, --help    Show this help message and exit"
+    echo "  -l, --list    List all aliases defined in .aliases"
+    echo "  -s, --status  Show status of aliases (synced/out-of-sync)"
+    echo ""
+    exit 0
+}
+
+# Get dotfiles directory
+parentDirectory="$(cd "$( dirname "$0" )" && pwd -P)"
+dotfilesDirectory="$(cd "$( dirname "$parentDirectory" )" && pwd -P)"
+aliasesFile="$dotfilesDirectory/.aliases"
+zshrcFile="$HOME/.zshrc"
+
+# Check if .aliases file exists
+check_aliases_file() {
+    if [ ! -f "$aliasesFile" ]; then
+        echo "Error: .aliases file not found at $aliasesFile"
+        exit 1
+    fi
+}
+
+# List all aliases from .aliases file
+list_aliases() {
+    check_aliases_file
+    echo "Aliases defined in .aliases:"
+    echo ""
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Skip empty lines and comments
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+
+        # Extract alias name and command
+        if [[ "$line" =~ ^alias[[:space:]]+([^=]+)= ]]; then
+            alias_name="${BASH_REMATCH[1]}"
+            echo "  $alias_name"
+        fi
+    done < "$aliasesFile"
+    echo ""
+}
+
+# Show status of aliases
+show_status() {
+    check_aliases_file
+    echo "Alias status:"
+    echo ""
+
+    # Get aliases from .aliases
+    while IFS= read -r line || [ -n "$line" ]; do
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+
+        if [[ "$line" =~ ^alias[[:space:]]+([^=]+)=(.+)$ ]]; then
+            alias_name="${BASH_REMATCH[1]}"
+            alias_cmd="${BASH_REMATCH[2]}"
+
+            # Check if alias exists in current shell
+            if alias "$alias_name" &>/dev/null; then
+                current_def=$(alias "$alias_name" 2>/dev/null)
+                if [[ "$current_def" == *"$alias_cmd"* ]] || [[ "alias $alias_name=$alias_cmd" == "$current_def" ]]; then
+                    printf "  %-15s [synced]\n" "$alias_name"
+                else
+                    printf "  %-15s [out-of-sync]\n" "$alias_name"
+                fi
+            else
+                printf "  %-15s [not loaded]\n" "$alias_name"
+            fi
+        fi
+    done < "$aliasesFile"
+    echo ""
+    echo "Run '.a' or 'source ~/.zshrc' to sync aliases."
+}
+
+# Sync aliases - source the .aliases file
+sync_aliases() {
+    check_aliases_file
+
+    # Check if .aliases is sourced in .zshrc
+    if [ -f "$zshrcFile" ]; then
+        if ! grep -q "source.*\.aliases" "$zshrcFile" && ! grep -q "\. .*\.aliases" "$zshrcFile"; then
+            echo "Note: .aliases is not sourced in $zshrcFile"
+            echo "Add the following line to your .zshrc or run 'dot' to set up:"
+            echo "  source \"\$DOTFILES_DIR/.aliases\""
+            echo ""
+        fi
+    fi
+
+    # Count aliases
+    alias_count=0
+    while IFS= read -r line || [ -n "$line" ]; do
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        if [[ "$line" =~ ^alias[[:space:]] ]]; then
+            ((alias_count++))
+        fi
+    done < "$aliasesFile"
+
+    # Source the aliases file for current shell
+    # Note: This won't affect the parent shell, so we print instructions
+    echo "Aliases file: $aliasesFile"
+    echo "Found $alias_count alias(es)"
+    echo ""
+    echo "To load aliases in your current shell, run:"
+    echo "  source $aliasesFile"
+    echo ""
+    echo "Or start a new shell session."
+}
+
+# Parse arguments
+case "${1:-}" in
+    -h|--help)
+        usage
+        ;;
+    -l|--list)
+        list_aliases
+        ;;
+    -s|--status)
+        show_status
+        ;;
+    "")
+        sync_aliases
+        ;;
+    *)
+        echo "Invalid option: $1"
+        usage
+        ;;
+esac

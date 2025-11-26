@@ -3,5 +3,10 @@
 DOTFILES_DIR="${0:A:h:h}"  # Get the directory containing this .zshrc file, then go up one level
 export PATH="$DOTFILES_DIR/bin:$PATH"
 
+# Source aliases from .aliases file
+if [ -f "$DOTFILES_DIR/.aliases" ]; then
+    source "$DOTFILES_DIR/.aliases"
+fi
+
 alias .cc='claude --dangerously-skip-permissions'
 alias .ccc='claude --continue --dangerously-skip-permissions'

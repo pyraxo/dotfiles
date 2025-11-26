@@ -4,6 +4,21 @@ Super-opinionated collection of custom command-line tools for my own use.
 
 ## Available Tools
 
+### Alias Manager (.a)
+
+Manage shell aliases from the `.aliases` file in the dotfiles directory.
+
+```bash
+.a [options]
+```
+
+**Options:**
+- `-l, --list` - List all aliases defined in .aliases
+- `-s, --status` - Show status of aliases (synced/out-of-sync)
+- No args - Show sync instructions
+
+Aliases defined in `.aliases` are automatically sourced when starting a new shell.
+
 ### PATH Manager (.b)
 
 Add directories to PATH with persistent or temporary options.
