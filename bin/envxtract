@@ -102,7 +102,7 @@ def find_env_files(start_dir: str = '.') -> List[str]:
     return sorted(set(env_files))
 
 
-def extract_env_files(output_dir: str = None) -> None:
+def extract_env_files(output_dir: str = None, text_mode: bool = False) -> None:
     """Extract (backup) all .env files in current directory."""
     print("envxtract - Environment File Backup")
     print("=" * 40)
@@ -169,7 +169,8 @@ def extract_env_files(output_dir: str = None) -> None:
     # Generate filename
     timestamp = datetime.now().strftime('%Y%m%d')
     random_hex = secrets.token_hex(3)  # 6 characters
-    filename = f"{timestamp}-envxtract-{random_hex}.envx"
+    extension = "envx.txt" if text_mode else "envx"
+    filename = f"{timestamp}-envxtract-{random_hex}.{extension}"
 
     # Determine output directory
     if output_dir:
@@ -185,8 +186,15 @@ def extract_env_files(output_dir: str = None) -> None:
     # Write encrypted file
     output_path = os.path.join(target_dir, filename)
     try:
-        with open(output_path, 'wb') as f:
-            f.write(encrypted_data)
+        if text_mode:
+            # Encode to base64 for copy-paste friendliness
+            base64_data = base64.b64encode(encrypted_data).decode('ascii')
+            with open(output_path, 'w') as f:
+                f.write(base64_data)
+        else:
+            # Binary mode (default)
+            with open(output_path, 'wb') as f:
+                f.write(encrypted_data)
     except Exception as e:
         print(f"Error writing backup file: {e}")
         sys.exit(1)
@@ -221,8 +229,16 @@ def restore_env_files(backup_path: str) -> None:
 
     # Read and decrypt
     try:
-        with open(backup_path, 'rb') as f:
-            encrypted_data = f.read()
+        # Try to read as text first (base64 encoded)
+        with open(backup_path, 'r') as f:
+            content = f.read()
+            # Check if it's base64 encoded text
+            try:
+                encrypted_data = base64.b64decode(content)
+            except Exception:
+                # Not base64, reopen as binary
+                with open(backup_path, 'rb') as fb:
+                    encrypted_data = fb.read()
     except Exception as e:
         print(f"Error reading backup file: {e}")
         sys.exit(1)
@@ -315,6 +331,7 @@ def print_usage():
     print("Commands:")
     print("  (no args)              Extract (backup) all .env* files in current directory")
     print("  --output <dir>         Specify output directory (default: .tmp/)")
+    print("  --text                 Create base64-encoded text file (copy-pasteable)")
     print("  --load <file>          Restore .env files from backup")
     print("  -h, --help             Show this help message")
     print()
@@ -327,32 +344,61 @@ def print_usage():
     print()
     print("Examples:")
     print("  envxtract                                    # Backup all .env files to .tmp/")
+    print("  envxtract --text                             # Create copy-pasteable text backup")
     print("  envxtract --output ~/backups                 # Backup to ~/backups")
+    print("  envxtract --output ~/backups --text          # Text backup to ~/backups")
     print("  envxtract --load .tmp/20251125-envxtract-a4f2c9.envx")
 
 
 def main():
     """Main entry point."""
-    if len(sys.argv) == 1:
+    args = sys.argv[1:]
+
+    if len(args) == 0:
         # No arguments: extract mode with default output
         extract_env_files()
-    elif len(sys.argv) == 2:
-        arg = sys.argv[1]
+    elif len(args) == 1:
+        arg = args[0]
         if arg in ['-h', '--help']:
             print_usage()
+        elif arg == '--text':
+            # Extract in text mode
+            extract_env_files(text_mode=True)
         else:
             print(f"Error: Unknown command '{arg}'")
             print()
             print_usage()
             sys.exit(1)
-    elif len(sys.argv) == 3:
-        if sys.argv[1] == '--load':
-            restore_env_files(sys.argv[2])
-        elif sys.argv[1] == '--output':
+    elif len(args) == 2:
+        if args[0] == '--load':
+            restore_env_files(args[1])
+        elif args[0] == '--output':
             # Extract with custom output directory
-            extract_env_files(output_dir=sys.argv[2])
+            extract_env_files(output_dir=args[1])
+        elif args[0] == '--text' and args[1] == '--output':
+            print("Error: --output requires a directory path")
+            print_usage()
+            sys.exit(1)
         else:
-            print(f"Error: Unknown command '{sys.argv[1]}'")
+            print(f"Error: Unknown command '{args[0]}'")
+            print()
+            print_usage()
+            sys.exit(1)
+    elif len(args) == 3:
+        # Handle combinations like --output <dir> --text or --text --output <dir>
+        text_mode = '--text' in args
+        output_idx = -1
+
+        try:
+            output_idx = args.index('--output')
+            if output_idx + 1 >= len(args):
+                print("Error: --output requires a directory path")
+                print_usage()
+                sys.exit(1)
+            output_dir = args[output_idx + 1]
+            extract_env_files(output_dir=output_dir, text_mode=text_mode)
+        except ValueError:
+            print("Error: Invalid argument combination")
             print()
             print_usage()
             sys.exit(1)
