@@ -94,6 +94,9 @@ def find_env_files(start_dir: str = '.') -> List[str]:
                 # Skip .env.example files (these are typically committed to git)
                 if filepath.name.endswith('.env.example'):
                     continue
+                # Skip .envx and .envx.txt backup files
+                if filepath.name.endswith('.envx') or filepath.name.endswith('.envx.txt'):
+                    continue
                 # Store relative path
                 rel_path = filepath.relative_to(start_path)
                 env_files.append(str(rel_path))
