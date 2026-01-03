@@ -42,31 +42,45 @@ listCommands() {
 		# Extract description dynamically from the file
 		description=""
 		if [ -f "$file" ]; then
-			# Method 1: Look for "Description:" in usage function
-			description=$(awk '/usage\(\)/,/^}/ {
-				if (/Description:/) {
-					getline; 
-					gsub(/^[[:space:]]*echo[[:space:]]*"/, "");
-					gsub(/^[[:space:]]*/, "");
-					gsub(/".*$/, "");
-					if (length($0) > 0) print $0;
-					exit
-				}
-			}' "$file" 2>/dev/null)
-			
-			# Method 2: Look for descriptive text after usage line but before Commands/Options
-			if [ -z "$description" ]; then
-				description=$(awk '/usage\(\)/,/^}/ {
-					if (/echo.*Usage:/) { found_usage=1; next }
-					if (found_usage && /echo.*""/) next
-					if (found_usage && (/Commands:|Options:/ || /^[[:space:]]*echo[[:space:]]*"[[:space:]]*$"/)) exit
-					if (found_usage && /echo.*[A-Za-z]/) {
-						gsub(/^[[:space:]]*echo[[:space:]]*"/, "");
-						gsub(/".*$/, "");
+			# Check if it's a Python script
+			if head -1 "$file" 2>/dev/null | grep -q 'python'; then
+				# Python: Look for line after "Description:" print statement
+				description=$(awk '
+					/print\(.*"Description:"/ { found_desc=1; next }
+					found_desc && /print\(.*"[^"]+/ {
+						gsub(/^[[:space:]]*print\(["'\'']/, "");
+						gsub(/["'\''].*$/, "");
 						gsub(/^[[:space:]]*/, "");
 						if (length($0) > 3) {print $0; exit}
 					}
+				' "$file" 2>/dev/null)
+			else
+				# Shell: Method 1: Look for "Description:" in usage function
+				description=$(awk '/usage\(\)/,/^}/ {
+					if (/Description:/) {
+						getline;
+						gsub(/^[[:space:]]*echo[[:space:]]*"/, "");
+						gsub(/^[[:space:]]*/, "");
+						gsub(/".*$/, "");
+						if (length($0) > 0) print $0;
+						exit
+					}
 				}' "$file" 2>/dev/null)
+
+				# Shell: Method 2: Look for descriptive text after usage line but before Commands/Options
+				if [ -z "$description" ]; then
+					description=$(awk '/usage\(\)/,/^}/ {
+						if (/echo.*Usage:/) { found_usage=1; next }
+						if (found_usage && /echo.*""/) next
+						if (found_usage && (/Commands:|Options:/ || /^[[:space:]]*echo[[:space:]]*"[[:space:]]*$"/)) exit
+						if (found_usage && /echo.*[A-Za-z]/) {
+							gsub(/^[[:space:]]*echo[[:space:]]*"/, "");
+							gsub(/".*$/, "");
+							gsub(/^[[:space:]]*/, "");
+							if (length($0) > 3) {print $0; exit}
+						}
+					}' "$file" 2>/dev/null)
+				fi
 			fi
 		else
 			description="Command-line utility"
