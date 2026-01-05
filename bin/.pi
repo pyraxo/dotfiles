@@ -22,7 +22,7 @@ usage() {
     echo "Description:"
     echo "  Interactive command to set up your project with:"
     echo "  - Claude Code Infrastructure"
-    echo "  - Beads issue tracking"
+    echo "  - Documentation structure"
     echo "  - Codex-1up documentation"
     echo ""
     echo "Options:"
@@ -77,49 +77,6 @@ check_ai_tools() {
         else
             echo -e "${YELLOW}Continuing without AI tools installed...${NC}"
         fi
-    fi
-}
-
-# Function to check and install beads
-check_beads() {
-    echo -e "\n${BLUE}Checking for Beads issue tracking...${NC}"
-
-    if [ -d ".beads" ]; then
-        echo -e "${GREEN}✓ Beads is already initialized in this project${NC}"
-        return 0
-    fi
-
-    if ! command -v bd &> /dev/null; then
-        echo -e "${YELLOW}Beads is not installed.${NC}"
-        if ask_yes_no "Would you like to install Beads?"; then
-            echo -e "${BLUE}Installing Beads...${NC}"
-            curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
-
-            # Source the shell configuration to get bd command available
-            if [ -f "$HOME/.bashrc" ]; then
-                source "$HOME/.bashrc"
-            elif [ -f "$HOME/.zshrc" ]; then
-                source "$HOME/.zshrc"
-            fi
-
-            echo -e "${GREEN}✓ Beads installed successfully${NC}"
-        else
-            echo -e "${YELLOW}Skipping Beads installation${NC}"
-            return 1
-        fi
-    else
-        echo -e "${GREEN}✓ Beads is installed${NC}"
-    fi
-
-    # Initialize beads in the project
-    if ask_yes_no "Would you like to initialize Beads in this project?"; then
-        echo -e "${BLUE}Initializing Beads...${NC}"
-        bd init
-        echo -e "${GREEN}✓ Beads initialized${NC}"
-        return 0
-    else
-        echo -e "${YELLOW}Skipping Beads initialization${NC}"
-        return 1
     fi
 }
 
@@ -264,23 +221,13 @@ run_main_workflow() {
     # Step 1: Check AI tools
     check_ai_tools
 
-    # Step 2: Check and install beads
-    local beads_installed=$?
-    check_beads
-    beads_installed=$?
+    # Step 2: Set up docs folder
+    setup_docs_folder
 
-    # Step 3: If beads is not being created, ask about docs folder
-    if [ $beads_installed -ne 0 ]; then
-        setup_docs_folder
-    else
-        echo -e "${BLUE}Beads is installed. You can use bd for issue tracking.${NC}"
-        echo -e "${BLUE}Skipping docs folder setup (Beads handles documentation).${NC}"
-    fi
-
-    # Step 4: Set up Claude Code infrastructure
+    # Step 3: Set up Claude Code infrastructure
     setup_cc_infra
 
-    # Step 5: Set up Codex-1up
+    # Step 4: Set up Codex-1up
     setup_codex_1up
 
     echo -e "\n${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

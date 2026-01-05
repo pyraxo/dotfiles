@@ -17,12 +17,34 @@ displayUsageAndExit() {
 	echo "Usage: dot [options]"
 	echo ""
 	echo "Options:"
+	echo "  -c, --check   Check if repo has uncommitted changes (exits 1 if dirty)"
 	echo "  -e, --edit    Open dotfiles directory for editing"
 	echo "  -h, --help    Show this help message and exit"
 	echo "  -l, --list    List all available commands in bin directory"
 	echo "  -f, --force   Force update by discarding local changes"
 	echo "  -x <script>   Execute a script from the scripts directory"
 	exit
+}
+
+checkRepoStatus() {
+	cd "$dotfilesDirectory"
+
+	# Check for uncommitted changes (staged or unstaged)
+	if ! git diff --quiet || ! git diff --cached --quiet; then
+		echo "Error: Uncommitted changes detected in dotfiles repo"
+		git status --short
+		exit 1
+	fi
+
+	# Check for untracked files
+	if [ -n "$(git ls-files --others --exclude-standard)" ]; then
+		echo "Error: Untracked files detected in dotfiles repo"
+		git status --short
+		exit 1
+	fi
+
+	echo "Dotfiles repo is clean"
+	exit 0
 }
 
 listCommands() {
@@ -101,6 +123,9 @@ while test $# -gt 0; do
 	case "$1" in
 		"-h"|"--help")
 			displayUsageAndExit
+			;;
+		"-c"|"--check")
+			checkRepoStatus
 			;;
 		"-e"|"--edit")
 			exec "$EDITOR" "$dotfilesDirectory"
