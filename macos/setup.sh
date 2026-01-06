@@ -1,80 +1,90 @@
 #!/bin/bash
+#
+# macos/setup.sh - macOS (home) setup script
+#
+# Installs Homebrew, packages from Brewfile, and development tools.
 
-set -e
+set -eu
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+# Source shared libraries
+# shellcheck source=../lib/common.sh
+source "$REPO_DIR/lib/common.sh"
 
-info() { printf "\r  [ ${BLUE}..${NC} ] $1\n"; }
-success() { printf "\r\033[2K  [ ${GREEN}OK${NC} ] $1\n"; }
+header "macOS (home) Setup"
 
-echo ""
-echo -e "${BLUE}=== macOS (home) Setup ===${NC}"
-echo ""
+# ============================================================================
+# Homebrew
+# ============================================================================
 
-# Check if Homebrew is installed
-if ! command -v brew >/dev/null 2>&1; then
-    info "Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-    success "Homebrew installed"
-else
-    success "Homebrew already installed"
-fi
-
-# Install packages from Brewfile
-info "Installing packages from Brewfile..."
-brew bundle --file="$REPO_DIR/Brewfile"
-success "Brewfile packages installed"
-
-# Install Volta
-echo ""
-if ! command -v volta >/dev/null 2>&1; then
-    info "Installing Volta..."
-    curl https://get.volta.sh | bash
-    export VOLTA_HOME="$HOME/.volta"
-    export PATH="$VOLTA_HOME/bin:$PATH"
-    success "Volta installed"
-else
-    success "Volta already installed"
-fi
-
-# Install Node.js and pnpm via Volta
-info "Installing Node.js via Volta..."
-volta install node
-success "Node.js installed"
-
-info "Installing pnpm via Volta..."
-volta install pnpm
-success "pnpm installed"
-
-# Install Codex CLI
-echo ""
-if ! command -v codex >/dev/null 2>&1; then
-    info "Installing Codex CLI..."
-
-    # Configure npm to use global directory in user home to avoid permission issues
-    if [ ! -d "$HOME/.npm-global" ]; then
-        mkdir -p "$HOME/.npm-global"
-        npm config set prefix "$HOME/.npm-global"
-
-        # Add to PATH if not already there
-        if ! grep -q 'npm-global/bin' "$HOME/.zshrc" 2>/dev/null; then
-            echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.zshrc"
-        fi
-        export PATH="$HOME/.npm-global/bin:$PATH"
+install_homebrew() {
+    if command_exists brew; then
+        success "Homebrew already installed ($(get_version brew))"
+        return 0
     fi
+    
+    info "Installing Homebrew..."
+    # SECURITY: Trusted vendor installation script
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    
+    # Add Homebrew to PATH for this session
+    if [[ -f /opt/homebrew/bin/brew ]]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [[ -f /usr/local/bin/brew ]]; then
+        eval "$(/usr/local/bin/brew shellenv)"
+    fi
+    
+    success "Homebrew installed"
+}
 
-    npm install -g @openai/codex
-    success "Codex CLI installed"
-else
-    success "Codex CLI already installed"
-fi
+# ============================================================================
+# Brewfile packages
+# ============================================================================
 
-echo ""
-success "macOS (home) setup complete!"
+install_brewfile_packages() {
+    local brewfile="$REPO_DIR/Brewfile"
+    
+    if [[ ! -f "$brewfile" ]]; then
+        warn "Brewfile not found at $brewfile"
+        return 1
+    fi
+    
+    info "Installing packages from Brewfile..."
+    brew bundle --file="$brewfile"
+    success "Brewfile packages installed"
+}
+
+# ============================================================================
+# Main Installation Flow
+# ============================================================================
+
+main() {
+    # Install Homebrew
+    install_homebrew
+    
+    # Install Brewfile packages
+    install_brewfile_packages
+    
+    echo ""
+    
+    # Install Node.js development stack
+    install_volta
+    install_nodejs
+    install_pnpm
+    
+    echo ""
+    
+    # Install Bun
+    install_bun
+    
+    echo ""
+    
+    # Install Codex CLI
+    install_codex_cli
+    
+    echo ""
+    success "macOS (home) setup complete!"
+}
+
+main "$@"

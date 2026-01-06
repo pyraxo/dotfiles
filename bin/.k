@@ -1,4 +1,10 @@
 #!/bin/bash
+#
+# .k - API key manager
+#
+# Manages API keys by syncing between .env and ~/.config/@cli/config
+
+set -eu
 
 # Function to display usage
 usage() {
@@ -25,15 +31,22 @@ init_files() {
     CONFIG_DIR="$HOME/.config/@cli"
     CONFIG_FILE="$CONFIG_DIR/config"
     
-    # Create config directory and file if they don't exist
+    # Create config directory with secure permissions
     if [ ! -d "$CONFIG_DIR" ]; then
         mkdir -p "$CONFIG_DIR"
+        chmod 700 "$CONFIG_DIR"
     fi
+    
+    # Ensure directory has correct permissions even if it existed
+    chmod 700 "$CONFIG_DIR"
     
     if [ ! -f "$CONFIG_FILE" ]; then
         touch "$CONFIG_FILE"
         chmod 600 "$CONFIG_FILE"
     fi
+    
+    # Ensure file has correct permissions even if it existed
+    chmod 600 "$CONFIG_FILE"
     
     # Create .env if it doesn't exist
     if [ ! -f ".env" ]; then
@@ -65,8 +78,15 @@ interactive_mode() {
     
     echo "Interactive API Key Management"
     echo "----------------------------"
-    echo "Please paste your API key:"
-    read -r api_key
+    echo "Please paste your API key (input hidden):"
+    read -rs api_key
+    echo  # Add newline after hidden input
+    
+    # Validate input
+    if [ -z "$api_key" ]; then
+        echo "Error: API key cannot be empty"
+        exit 1
+    fi
     
     echo ""
     echo "What type of API key is this?"
@@ -114,6 +134,8 @@ manage_keys() {
     
     # Temporary file for the new .env content
     TEMP_ENV=$(mktemp)
+    # Ensure temp file is cleaned up on exit
+    trap 'rm -f "$TEMP_ENV"' EXIT
     
     # Read the current .env file line by line
     while IFS= read -r line || [ -n "$line" ]; do
@@ -172,10 +194,8 @@ list_keys() {
     if [ -n "$1" ]; then
         # Convert input to uppercase for matching
         search_key=$(echo "$1" | tr '[:lower:]' '[:upper:]')
-        # Look for either _API_KEY or _SECRET suffix
-        key_pattern="${search_key}_API_KEY\|${search_key}_SECRET"
         
-        # Try to find and display the key value
+        # Try to find and display the key value (looks for _API_KEY or _SECRET suffix)
         if [ -s "$CONFIG_FILE" ]; then
             value=$(grep -E "^(${search_key}_API_KEY|${search_key}_SECRET)=" "$CONFIG_FILE" | cut -d'"' -f2)
             if [ -n "$value" ]; then

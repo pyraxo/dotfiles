@@ -1,15 +1,28 @@
 #!/bin/bash
+#
+# .pi - Project initializer for AI-assisted coding
+#
+# Interactive command to set up projects with Claude Code infrastructure,
+# documentation structure, and other AI coding tools.
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+set -eu
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 TMP_DIR="$SCRIPT_DIR/tmp"
+
+# Source shared libraries if available
+if [[ -f "$SCRIPT_DIR/lib/logging.sh" ]]; then
+    # shellcheck source=../lib/logging.sh
+    source "$SCRIPT_DIR/lib/logging.sh"
+else
+    # Fallback colors if lib not available
+    GREEN='\033[0;32m'
+    BLUE='\033[0;34m'
+    YELLOW='\033[1;33m'
+    RED='\033[0;31m'
+    NC='\033[0m'
+fi
 
 # Function to display usage
 usage() {

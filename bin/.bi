@@ -2,10 +2,10 @@
 #
 # .bi - Brew install with automatic Brewfile management
 #
-# Description:
-# Install packages with brew and automatically add them to Brewfile
+# Install packages with brew and automatically add them to Brewfile.
+# Automatically detects if package is a formula, cask, or tap.
 
-set -e
+set -eu
 
 usage() {
     echo ".bi -- brew install with automatic Brewfile management"
@@ -44,7 +44,6 @@ fi
 # Parse options
 INSTALL_TYPE="auto"
 PACKAGE=""
-FORCE_TYPE=false
 
 while test $# -gt 0; do
     case "$1" in
@@ -53,17 +52,14 @@ while test $# -gt 0; do
             ;;
         -c|--cask)
             INSTALL_TYPE="cask"
-            FORCE_TYPE=true
             shift
             ;;
         -t|--tap)
             INSTALL_TYPE="tap"
-            FORCE_TYPE=true
             shift
             ;;
         -f|--formula)
             INSTALL_TYPE="brew"
-            FORCE_TYPE=true
             shift
             ;;
         *)

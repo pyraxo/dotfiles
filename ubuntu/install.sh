@@ -31,12 +31,13 @@ PACKAGES=(
     ["git-filter-repo"]="Tool for rewriting git history"
     ["volta"]="Node.js version manager (fast, reliable)"
     ["uv"]="Python package and project manager (fast)"
+    ["bun"]="Fast JavaScript runtime and package manager"
     ["docker"]="Docker container platform and tools"
 )
 
 # Create checklist options (package_name "description" status)
 OPTIONS=()
-for pkg in imagemagick redis-server wireguard-tools cmake nmap golang-go build-essential gh cloudflared git-filter-repo volta uv docker; do
+for pkg in imagemagick redis-server wireguard-tools cmake nmap golang-go build-essential gh cloudflared git-filter-repo volta uv bun docker; do
     # Check if already installed
     status="OFF"
     if [[ "$pkg" == "build-essential" ]]; then
@@ -96,7 +97,7 @@ for pkg in $SELECTED; do
         imagemagick|redis-server|wireguard-tools|cmake|nmap|golang-go|build-essential)
             APT_PACKAGES+=("$pkg")
             ;;
-        gh|cloudflared|git-filter-repo|volta|uv|docker)
+        gh|cloudflared|git-filter-repo|volta|uv|bun|docker)
             SPECIAL_PACKAGES+=("$pkg")
             ;;
     esac
@@ -178,6 +179,16 @@ for pkg in "${SPECIAL_PACKAGES[@]}"; do
                 echo -e "${GREEN}uv installed successfully${NC}"
             else
                 echo -e "${BLUE}uv already installed${NC}"
+            fi
+            ;;
+        bun)
+            if ! command -v bun >/dev/null 2>&1; then
+                echo -e "${YELLOW}Installing Bun...${NC}"
+                curl -fsSL https://bun.sh/install | bash
+                echo -e "${GREEN}Bun installed successfully${NC}"
+                echo -e "${YELLOW}Note: You may need to restart your shell or run: source ~/.bashrc (or ~/.zshrc)${NC}"
+            else
+                echo -e "${BLUE}Bun already installed${NC}"
             fi
             ;;
         docker)

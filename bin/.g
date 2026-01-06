@@ -1,40 +1,62 @@
 #!/bin/bash
+#
+# .g - Git command shortcuts
+#
+# Provides convenient shorthand commands for common git operations.
+
+set -eu
 
 # Function to display usage
 usage() {
     echo "Usage: .g <command> [arguments]"
     echo ""
+    echo "Description:"
+    echo "  Git command shortcuts for faster workflow."
+    echo ""
     echo "Commands:"
-    echo "  cl, clone <repo> [directory]    Clone a repository (tries git:, then https:)"
-    echo "                                  (Works with full GitHub URLs including /blob/...)"
-    echo "  i, init [-f]                    Initialize git repo, create initial commit"
-    echo "                                  (-f: resets .git folder"
-    echo "  cm, commit <message>            Commit with message (no quotes needed)"
-    echo "  ac <message>                    Add all files and commit (no quotes needed)"
-    echo "  acp <message>                   Add all files, commit, and push (no quotes needed)"
-    echo "  p, push                         Push to remote"
-    echo "  pl, pull                        Pull from remote"
-    echo "  f, fetch                        Fetch from remote"
-    echo "  b                               List branches"
-    echo "  bc <branch-name>                Create and checkout new branch"
-    echo "  bs <branch-name>                Switch to branch"
-    echo "  bd <branch-name>                Delete branch"
-    echo "  bm <branch-name>                Merge branch into current branch"
-    echo "  ro <url>                        Set remote origin URL (just username/repo)"
-    echo "  rs                              Reset soft (undo last commit, keep changes)"
-    echo "  rh                              Reset hard (discard all changes)"
-    echo "  rw                              Rewind - reset hard to previous commit (HEAD^1)"
-    echo "  am <message>                    Amend last commit with new message"
-    echo "  loc                             Show lines of code added/removed in past 24h"
-    echo "  loc --all                       Compare your recent changes with historical changes"
+    echo "  cl, clone <repo> [dir]    Clone repository (tries SSH, then HTTPS)"
+    echo "  i, init [-f]              Initialize git repo, create initial commit"
+    echo "  cm, commit <message>      Commit with message (no quotes needed)"
+    echo "  ac <message>              Add all files and commit"
+    echo "  acp <message>             Add all, commit, and push"
+    echo ""
+    echo "  d, diff                   Show unstaged changes"
+    echo "  ds, diff-staged           Show staged changes"
+    echo "  dc, diff-cached           Show cached changes (alias for ds)"
+    echo ""
+    echo "  l, log                    Show last 10 commits (oneline)"
+    echo "  ll, log-graph             Show commit graph"
+    echo "  lp, log-patch             Show commits with patches"
+    echo ""
+    echo "  st, stash                 Stash changes"
+    echo "  sta, stash-apply          Apply latest stash"
+    echo "  stl, stash-list           List all stashes"
+    echo "  stp, stash-pop            Pop latest stash"
+    echo "  std <n>, stash-drop       Drop stash at index n"
+    echo ""
+    echo "  p, push                   Push to remote"
+    echo "  pl, pull                  Pull from remote"
+    echo "  f, fetch                  Fetch from remote"
+    echo ""
+    echo "  b                         List branches"
+    echo "  bc <branch>               Create and checkout new branch"
+    echo "  bs <branch>               Switch to branch"
+    echo "  bd <branch>               Delete branch"
+    echo "  bm <branch>               Merge branch into current"
+    echo ""
+    echo "  ro <user/repo>            Set remote origin URL"
+    echo "  rs                        Reset soft (undo commit, keep changes)"
+    echo "  rh                        Reset hard (discard all changes)"
+    echo "  rw                        Rewind (reset hard to HEAD^1)"
+    echo "  am <message>              Amend last commit message"
+    echo ""
+    echo "  s, status                 Show status"
+    echo "  loc [--all]               Show lines of code changed"
     echo ""
     echo "Options:"
-    echo "  -h, --help    Show this help message and exit"
+    echo "  -h, --help    Show this help message"
     echo ""
-    echo "Description:"
-    echo "  Git commands shorthands."
-    echo ""
-    exit 1
+    exit 0
 }
 
 # Function to handle clone command
@@ -256,7 +278,7 @@ handle_reset_rewind() {
     echo "  \"$commit_msg\""
     echo "and discard all changes in your working directory."
     echo ""
-    read -p "Are you sure you want to continue? (y/N): " confirm
+    read -rp "Are you sure you want to continue? (y/N): " confirm
     
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
         git reset --hard HEAD^1
@@ -276,6 +298,85 @@ handle_amend_commit() {
     # Join all arguments as the commit message
     message="$*"
     git commit --amend -m "$message"
+}
+
+# ============================================================================
+# Diff Commands
+# ============================================================================
+
+# handle_diff - Show unstaged changes
+handle_diff() {
+    git diff "$@"
+}
+
+# handle_diff_staged - Show staged changes
+handle_diff_staged() {
+    git diff --staged "$@"
+}
+
+# ============================================================================
+# Log Commands
+# ============================================================================
+
+# handle_log - Show last 10 commits in oneline format
+handle_log() {
+    git log --oneline -10 "$@"
+}
+
+# handle_log_graph - Show commit graph
+handle_log_graph() {
+    git log --oneline --graph --all --decorate "$@"
+}
+
+# handle_log_patch - Show commits with patches
+handle_log_patch() {
+    git log -p "$@"
+}
+
+# ============================================================================
+# Stash Commands
+# ============================================================================
+
+# handle_stash - Stash changes
+handle_stash() {
+    if [ $# -eq 0 ]; then
+        git stash
+    else
+        git stash "$@"
+    fi
+}
+
+# handle_stash_apply - Apply latest stash
+handle_stash_apply() {
+    git stash apply "$@"
+}
+
+# handle_stash_list - List all stashes
+handle_stash_list() {
+    git stash list
+}
+
+# handle_stash_pop - Pop latest stash
+handle_stash_pop() {
+    git stash pop "$@"
+}
+
+# handle_stash_drop - Drop stash at index
+handle_stash_drop() {
+    if [ -z "${1:-}" ]; then
+        git stash drop
+    else
+        git stash drop "stash@{$1}"
+    fi
+}
+
+# ============================================================================
+# Status Command
+# ============================================================================
+
+# handle_status - Show status
+handle_status() {
+    git status "$@"
 }
 
 # Function to handle loc command
@@ -350,7 +451,7 @@ handle_loc() {
 }
 
 # Main command router
-case "$1" in
+case "${1:-}" in
     "cl"|"clone")
         shift
         handle_clone "$@"
@@ -419,6 +520,61 @@ case "$1" in
     "loc")
         shift
         handle_loc "$@"
+        ;;
+    # Diff commands
+    "d"|"diff")
+        shift
+        handle_diff "$@"
+        ;;
+    "ds"|"diff-staged")
+        shift
+        handle_diff_staged "$@"
+        ;;
+    "dc"|"diff-cached")
+        shift
+        handle_diff_staged "$@"
+        ;;
+    # Log commands
+    "l"|"log")
+        shift
+        handle_log "$@"
+        ;;
+    "ll"|"log-graph")
+        shift
+        handle_log_graph "$@"
+        ;;
+    "lp"|"log-patch")
+        shift
+        handle_log_patch "$@"
+        ;;
+    # Stash commands
+    "st"|"stash")
+        shift
+        handle_stash "$@"
+        ;;
+    "sta"|"stash-apply")
+        shift
+        handle_stash_apply "$@"
+        ;;
+    "stl"|"stash-list")
+        handle_stash_list
+        ;;
+    "stp"|"stash-pop")
+        shift
+        handle_stash_pop "$@"
+        ;;
+    "std"|"stash-drop")
+        shift
+        handle_stash_drop "$@"
+        ;;
+    # Status
+    "s"|"status")
+        shift
+        handle_status "$@"
+        ;;
+    # Help
+    "-h"|"--help")
+        usage
         ;;
     *)
         usage

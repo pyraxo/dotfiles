@@ -1,0 +1,61 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+      
+      - name: Run ShellCheck on lib/
+        run: |
+          shellcheck -x lib/*.sh
+      
+      - name: Run ShellCheck on bin/
+        run: |
+          # Check all shell scripts in bin/
+          for file in bin/*; do
+            if [[ -f "$file" ]] && head -1 "$file" | grep -qE '^#!.*bash|^#!.*sh'; then
+              echo "Checking $file..."
+              shellcheck -x "$file" || true
+            fi
+          done
+      
+      - name: Run ShellCheck on install scripts
+        run: |
+          shellcheck -x install.sh
+          shellcheck -x macos/setup.sh
+          shellcheck -x ubuntu/setup.sh
+      
+      - name: Summary
+        run: |
+          echo "ShellCheck analysis complete"
+          echo ""
+          echo "Note: Some warnings may be intentional or acceptable."
+          echo "Review the output above for any critical issues."
+
+  yaml-lint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Install yamllint
+        run: pip install yamllint
+      
+      - name: Run yamllint
+        run: |
+          yamllint -d relaxed .github/workflows/*.yml || true

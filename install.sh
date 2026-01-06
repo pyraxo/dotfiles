@@ -1,51 +1,31 @@
 #!/bin/bash
+#
+# install.sh - Main dotfiles installer
+#
+# This script sets up your development environment on macOS or Linux.
 
-set -e
+set -eu
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Source shared libraries
+# shellcheck source=lib/logging.sh
+source "$REPO_DIR/lib/logging.sh"
+# shellcheck source=lib/utils.sh
+source "$REPO_DIR/lib/utils.sh"
 
-info() {
-    printf "\r  [ ${BLUE}..${NC} ] $1\n"
-}
+banner "Dotfiles Setup Installer"
 
-user() {
-    printf "\r  [ ${YELLOW}??${NC} ] $1\n"
-}
-
-success() {
-    printf "\r\033[2K  [ ${GREEN}OK${NC} ] $1\n"
-}
-
-fail() {
-    printf "\r\033[2K  [${RED}FAIL${NC}] $1\n"
-    echo ''
-}
-
-banner() {
-    echo ""
-    echo -e "${BLUE}╔════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║                                    ║${NC}"
-    echo -e "${BLUE}║      Dotfiles Setup Installer      ║${NC}"
-    echo -e "${BLUE}║                                    ║${NC}"
-    echo -e "${BLUE}╔════════════════════════════════════╗${NC}"
-    echo ""
-}
-
-banner
+# Save dotfiles directory for future use
+save_dotfiles_dir "$REPO_DIR"
+success "Saved dotfiles location to config"
 
 # Ask which setup type
 user "Which setup are you configuring?"
 echo "  1) home  - macOS work laptop"
 echo "  2) lab   - Linux server/homelab"
 echo ""
-read -p "Enter choice [1-2]: " setup_choice
+read -rp "Enter choice [1-2]: " setup_choice
 
 case $setup_choice in
     1)
@@ -93,9 +73,11 @@ REPO_ZSHRC="$REPO_DIR/config/.zshrc"
 info "Configuring zsh..."
 if [ -f "$ZSHRC" ] && [ ! -L "$ZSHRC" ]; then
     if ! grep -q "source $REPO_ZSHRC" "$ZSHRC"; then
-        echo "" >> "$ZSHRC"
-        echo "# Source dotfiles repo zshrc" >> "$ZSHRC"
-        echo "source $REPO_ZSHRC" >> "$ZSHRC"
+        {
+            echo ""
+            echo "# Source dotfiles repo zshrc"
+            echo "source $REPO_ZSHRC"
+        } >> "$ZSHRC"
         success "Appended source line to $ZSHRC"
     else
         info "Zshrc already configured"
@@ -109,9 +91,11 @@ fi
 
 # Add bin to PATH
 if ! grep -q "export PATH=\"$REPO_DIR/bin:\$PATH\"" "$ZSHRC"; then
-    echo "" >> "$ZSHRC"
-    echo "# Add dotfiles bin to PATH" >> "$ZSHRC"
-    echo "export PATH=\"$REPO_DIR/bin:\$PATH\"" >> "$ZSHRC"
+    {
+        echo ""
+        echo "# Add dotfiles bin to PATH"
+        echo "export PATH=\"$REPO_DIR/bin:\$PATH\""
+    } >> "$ZSHRC"
     success "Added bin directory to PATH"
 else
     info "Bin already in PATH"

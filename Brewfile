@@ -34,6 +34,7 @@ brew 'neovim'
 
 # Language version managers
 brew 'uv'  # Python
+brew 'bun'  # JavaScript runtime
 
 # Shell
 brew 'bash'

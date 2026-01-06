@@ -1,196 +1,717 @@
-#!/bin/sh
+#!/bin/bash
 #
-# dot
+# dot - Dotfiles management utility
 #
-# `dot` handles installation, updates, things like that. Run it periodically
-# to make sure you're on the latest and greatest.
-# Taken from https://github.com/holman/dotfiles/blob/master/bin/dot.
+# Handles installation, updates, system health checks, and more.
+# Run it periodically to make sure you're on the latest and greatest.
+#
+# Inspired by https://github.com/holman/dotfiles/blob/master/bin/dot
 
-set -e
+set -eu
 
-parentDirectory="$(cd "$( dirname "$0" )" && pwd -P)"
-dotfilesDirectory="$(cd "$( dirname "$parentDirectory" )" && pwd -P)"
+# Determine script location and dotfiles directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+DOTFILES_DIR="$(cd "$(dirname "$SCRIPT_DIR")" && pwd -P)"
+
+# Source shared libraries
+# shellcheck source=../lib/logging.sh
+source "$DOTFILES_DIR/lib/logging.sh"
+# shellcheck source=../lib/utils.sh
+source "$DOTFILES_DIR/lib/utils.sh"
+
+# ============================================================================
+# Usage and Help
+# ============================================================================
 
 displayUsageAndExit() {
-	echo "dot -- dotfiles management"
-	echo ""
-	echo "Usage: dot [options]"
-	echo ""
-	echo "Options:"
-	echo "  -c, --check   Check if repo has uncommitted changes (exits 1 if dirty)"
-	echo "  -e, --edit    Open dotfiles directory for editing"
-	echo "  -h, --help    Show this help message and exit"
-	echo "  -l, --list    List all available commands in bin directory"
-	echo "  -f, --force   Force update by discarding local changes"
-	echo "  -x <script>   Execute a script from the scripts directory"
-	exit
+    echo "dot -- dotfiles management"
+    echo ""
+    echo "Usage: dot [command] [options]"
+    echo ""
+    echo "Commands:"
+    echo "  (no command)  Update dotfiles and system packages"
+    echo "  setup         First-time setup (saves dotfiles location)"
+    echo "  status        Show status of installed tools"
+    echo "  doctor        Diagnose configuration issues"
+    echo "  backup        Create backup of system state"
+    echo "  restore       Restore from backup file"
+    echo "  sync          Sync dotfiles with remote (pull + push)"
+    echo ""
+    echo "Options:"
+    echo "  -c, --check   Check if repo has uncommitted changes (exits 1 if dirty)"
+    echo "  -e, --edit    Open dotfiles directory for editing"
+    echo "  -h, --help    Show this help message and exit"
+    echo "  -l, --list    List all available commands in bin directory"
+    echo "  -f, --force   Force update by discarding local changes"
+    echo "  -x <script>   Execute a script from the scripts directory"
+    echo ""
+    echo "Description:"
+    echo "  Dotfiles management utility for updates, health checks, and more."
+    echo ""
+    exit 0
 }
 
+# ============================================================================
+# Setup Command
+# ============================================================================
+
+# runSetup - First-time setup to save dotfiles location
+runSetup() {
+    banner "Dotfiles Setup"
+    
+    info "Configuring dotfiles location..."
+    
+    # Detect current directory
+    local detected_dir="$DOTFILES_DIR"
+    
+    echo "Detected dotfiles directory: $detected_dir"
+    echo ""
+    
+    if confirm_default_yes "Use this location?"; then
+        save_dotfiles_dir "$detected_dir"
+        success "Saved dotfiles location: $detected_dir"
+    else
+        echo "Enter the full path to your dotfiles directory:"
+        read -r custom_dir
+        
+        if [[ -d "$custom_dir" ]]; then
+            save_dotfiles_dir "$custom_dir"
+            success "Saved dotfiles location: $custom_dir"
+        else
+            fail "Directory does not exist: $custom_dir"
+            exit 1
+        fi
+    fi
+    
+    echo ""
+    success "Setup complete!"
+    echo ""
+    echo "Your dotfiles location has been saved to:"
+    echo "  ${DOTFILES_CONFIG_DIR}/config"
+    echo ""
+    echo "Run 'dot status' to check your system health."
+}
+
+# ============================================================================
+# Status Command
+# ============================================================================
+
+# checkToolStatus - Check and display status of a tool
+# Usage: checkToolStatus "tool_name" "display_name"
+checkToolStatus() {
+    local cmd="$1"
+    local name="${2:-$1}"
+    local version
+    
+    if command_exists "$cmd"; then
+        version=$(get_version "$cmd")
+        printf "  ${GREEN}✓${NC} %-15s %s\n" "$name:" "$version"
+    else
+        printf "  ${RED}✗${NC} %-15s %s\n" "$name:" "not installed"
+    fi
+}
+
+# runStatus - Show status of all installed tools
+runStatus() {
+    banner "System Status"
+    
+    echo "Development Tools:"
+    checkToolStatus "git" "Git"
+    checkToolStatus "gh" "GitHub CLI"
+    checkToolStatus "go" "Go"
+    checkToolStatus "terraform" "Terraform"
+    
+    echo ""
+    echo "JavaScript/Node.js:"
+    checkToolStatus "volta" "Volta"
+    checkToolStatus "node" "Node.js"
+    checkToolStatus "npm" "npm"
+    checkToolStatus "pnpm" "pnpm"
+    checkToolStatus "bun" "Bun"
+    
+    echo ""
+    echo "Python:"
+    checkToolStatus "python3" "Python"
+    checkToolStatus "uv" "uv"
+    
+    echo ""
+    echo "AI Tools:"
+    checkToolStatus "codex" "Codex CLI"
+    checkToolStatus "claude" "Claude Code"
+    
+    echo ""
+    echo "System:"
+    if is_macos; then
+        checkToolStatus "brew" "Homebrew"
+    fi
+    checkToolStatus "zsh" "Zsh"
+    checkToolStatus "nvim" "Neovim"
+    
+    echo ""
+    
+    # Check dotfiles repo status
+    echo "Dotfiles Repository:"
+    cd "$DOTFILES_DIR"
+    
+    local branch
+    branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    printf "  %-15s %s\n" "Branch:" "$branch"
+    
+    local status_msg="clean"
+    if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+        status_msg="${YELLOW}uncommitted changes${NC}"
+    fi
+    if [[ -n "$(git ls-files --others --exclude-standard 2>/dev/null)" ]]; then
+        status_msg="${YELLOW}untracked files${NC}"
+    fi
+    printf "  %-15s %b\n" "Status:" "$status_msg"
+    
+    # Check if up to date with remote
+    git fetch --quiet 2>/dev/null || true
+    local behind
+    behind=$(git rev-list --count HEAD..@{upstream} 2>/dev/null || echo "0")
+    local ahead
+    ahead=$(git rev-list --count @{upstream}..HEAD 2>/dev/null || echo "0")
+    
+    if [[ "$behind" -gt 0 ]]; then
+        printf "  %-15s ${YELLOW}%s commits behind${NC}\n" "Remote:" "$behind"
+    elif [[ "$ahead" -gt 0 ]]; then
+        printf "  %-15s ${BLUE}%s commits ahead${NC}\n" "Remote:" "$ahead"
+    else
+        printf "  %-15s up to date\n" "Remote:"
+    fi
+    
+    echo ""
+}
+
+# ============================================================================
+# Doctor Command
+# ============================================================================
+
+# runDoctor - Diagnose configuration issues
+runDoctor() {
+    banner "Dotfiles Doctor"
+    
+    local issues=0
+    
+    echo "Checking configuration..."
+    echo ""
+    
+    # Check if dotfiles location is saved
+    if [[ -f "${DOTFILES_CONFIG_DIR}/config" ]]; then
+        printf "  ${GREEN}✓${NC} Dotfiles location saved\n"
+    else
+        printf "  ${RED}✗${NC} Dotfiles location not saved (run 'dot setup')\n"
+        ((issues++)) || true
+    fi
+    
+    # Check if bin is in PATH
+    if [[ ":$PATH:" == *":$DOTFILES_DIR/bin:"* ]]; then
+        printf "  ${GREEN}✓${NC} bin/ directory in PATH\n"
+    else
+        printf "  ${RED}✗${NC} bin/ directory not in PATH\n"
+        ((issues++)) || true
+    fi
+    
+    # Check if .zshrc sources dotfiles config
+    if [[ -f "$HOME/.zshrc" ]]; then
+        if grep -q "source.*dotfiles.*\.zshrc\|source.*config/\.zshrc" "$HOME/.zshrc" 2>/dev/null; then
+            printf "  ${GREEN}✓${NC} .zshrc sources dotfiles config\n"
+        else
+            printf "  ${YELLOW}!${NC} .zshrc may not source dotfiles config\n"
+            ((issues++)) || true
+        fi
+    else
+        printf "  ${RED}✗${NC} .zshrc not found\n"
+        ((issues++)) || true
+    fi
+    
+    # Check if .aliases exists
+    if [[ -f "$DOTFILES_DIR/.aliases" ]]; then
+        printf "  ${GREEN}✓${NC} .aliases file exists\n"
+    else
+        printf "  ${YELLOW}!${NC} .aliases file missing (optional)\n"
+    fi
+    
+    # Check SSH key
+    if [[ -f "$HOME/.ssh/id_ed25519" ]]; then
+        printf "  ${GREEN}✓${NC} SSH key exists (id_ed25519)\n"
+        
+        # Check if key is added to agent
+        if ssh-add -l 2>/dev/null | grep -q "id_ed25519"; then
+            printf "  ${GREEN}✓${NC} SSH key added to agent\n"
+        else
+            printf "  ${YELLOW}!${NC} SSH key not added to agent\n"
+        fi
+    else
+        printf "  ${YELLOW}!${NC} SSH key not found\n"
+    fi
+    
+    # Check Git configuration
+    if git config user.name &>/dev/null && git config user.email &>/dev/null; then
+        printf "  ${GREEN}✓${NC} Git configured ($(git config user.name))\n"
+    else
+        printf "  ${RED}✗${NC} Git user.name or user.email not configured\n"
+        ((issues++)) || true
+    fi
+    
+    # Check Oh My Zsh
+    if [[ -d "$HOME/.oh-my-zsh" ]]; then
+        printf "  ${GREEN}✓${NC} Oh My Zsh installed\n"
+    else
+        printf "  ${YELLOW}!${NC} Oh My Zsh not installed\n"
+    fi
+    
+    # Platform-specific checks
+    echo ""
+    if is_macos; then
+        echo "macOS-specific checks:"
+        
+        if command_exists brew; then
+            printf "  ${GREEN}✓${NC} Homebrew installed\n"
+            
+            # Check if Brewfile exists
+            if [[ -f "$DOTFILES_DIR/Brewfile" ]]; then
+                printf "  ${GREEN}✓${NC} Brewfile exists\n"
+            else
+                printf "  ${RED}✗${NC} Brewfile missing\n"
+                ((issues++)) || true
+            fi
+        else
+            printf "  ${RED}✗${NC} Homebrew not installed\n"
+            ((issues++)) || true
+        fi
+    fi
+    
+    echo ""
+    if [[ $issues -eq 0 ]]; then
+        success "No issues found!"
+    else
+        warn "$issues issue(s) found"
+        echo ""
+        echo "Run 'dot setup' to fix configuration issues."
+    fi
+    
+    exit $issues
+}
+
+# ============================================================================
+# Backup/Restore Commands
+# ============================================================================
+
+# runBackup - Create backup of system state
+runBackup() {
+    banner "System Backup"
+    
+    local timestamp
+    timestamp=$(date +%Y%m%d-%H%M%S)
+    local backup_dir="${DOTFILES_DATA_DIR}/backups"
+    local backup_file="${backup_dir}/backup-${timestamp}.json"
+    
+    ensure_dir "$backup_dir" 700
+    
+    info "Creating system backup..."
+    
+    # Start JSON
+    echo "{" > "$backup_file"
+    echo '  "timestamp": "'"$timestamp"'",' >> "$backup_file"
+    echo '  "hostname": "'"$(hostname)"'",' >> "$backup_file"
+    
+    # Capture Homebrew packages (macOS)
+    if is_macos && command_exists brew; then
+        info "Capturing Homebrew packages..."
+        echo '  "brew_formulae": [' >> "$backup_file"
+        brew list --formula | sed 's/^/    "/; s/$/",/' | sed '$ s/,$//' >> "$backup_file"
+        echo '  ],' >> "$backup_file"
+        
+        echo '  "brew_casks": [' >> "$backup_file"
+        brew list --cask 2>/dev/null | sed 's/^/    "/; s/$/",/' | sed '$ s/,$//' >> "$backup_file"
+        echo '  ],' >> "$backup_file"
+    fi
+    
+    # Capture npm global packages
+    if command_exists npm; then
+        info "Capturing npm global packages..."
+        echo '  "npm_global": [' >> "$backup_file"
+        npm list -g --depth=0 --json 2>/dev/null | jq -r '.dependencies | keys[]' 2>/dev/null | sed 's/^/    "/; s/$/",/' | sed '$ s/,$//' >> "$backup_file"
+        echo '  ],' >> "$backup_file"
+    fi
+    
+    # Capture Volta tools
+    if command_exists volta; then
+        info "Capturing Volta tools..."
+        echo '  "volta_tools": {' >> "$backup_file"
+        echo '    "node": "'"$(volta list node --format plain 2>/dev/null | head -1 || echo '')"'",' >> "$backup_file"
+        echo '    "pnpm": "'"$(volta list pnpm --format plain 2>/dev/null | head -1 || echo '')"'"' >> "$backup_file"
+        echo '  },' >> "$backup_file"
+    fi
+    
+    # Capture tool versions
+    info "Capturing tool versions..."
+    echo '  "versions": {' >> "$backup_file"
+    echo '    "node": "'"$(get_version node 2>/dev/null || echo '')"'",' >> "$backup_file"
+    echo '    "npm": "'"$(get_version npm 2>/dev/null || echo '')"'",' >> "$backup_file"
+    echo '    "pnpm": "'"$(get_version pnpm 2>/dev/null || echo '')"'",' >> "$backup_file"
+    echo '    "bun": "'"$(get_version bun 2>/dev/null || echo '')"'",' >> "$backup_file"
+    echo '    "python": "'"$(get_version python3 2>/dev/null || echo '')"'",' >> "$backup_file"
+    echo '    "go": "'"$(get_version go 2>/dev/null || echo '')"'"' >> "$backup_file"
+    echo '  }' >> "$backup_file"
+    
+    # Close JSON
+    echo "}" >> "$backup_file"
+    
+    success "Backup created: $backup_file"
+    echo ""
+    echo "To restore: dot restore $backup_file"
+}
+
+# runRestore - Restore from backup file
+runRestore() {
+    local backup_file="${1:-}"
+    
+    if [[ -z "$backup_file" ]]; then
+        # List available backups
+        local backup_dir="${DOTFILES_DATA_DIR}/backups"
+        
+        if [[ ! -d "$backup_dir" ]] || [[ -z "$(ls -A "$backup_dir" 2>/dev/null)" ]]; then
+            fail "No backups found"
+            echo "Run 'dot backup' to create a backup first."
+            exit 1
+        fi
+        
+        echo "Available backups:"
+        echo ""
+        ls -1t "$backup_dir"/*.json 2>/dev/null | while read -r f; do
+            local ts
+            ts=$(basename "$f" .json | sed 's/backup-//')
+            echo "  $f"
+        done
+        echo ""
+        echo "Usage: dot restore <backup_file>"
+        exit 0
+    fi
+    
+    if [[ ! -f "$backup_file" ]]; then
+        fail "Backup file not found: $backup_file"
+        exit 1
+    fi
+    
+    banner "System Restore"
+    
+    info "Reading backup: $backup_file"
+    
+    local timestamp
+    timestamp=$(jq -r '.timestamp' "$backup_file")
+    echo "Backup from: $timestamp"
+    echo ""
+    
+    # Restore Homebrew packages (macOS)
+    if is_macos && command_exists brew; then
+        if jq -e '.brew_formulae' "$backup_file" &>/dev/null; then
+            if confirm "Restore Homebrew formulae?"; then
+                info "Installing Homebrew formulae..."
+                jq -r '.brew_formulae[]' "$backup_file" | while read -r pkg; do
+                    brew install "$pkg" 2>/dev/null || true
+                done
+                success "Homebrew formulae restored"
+            fi
+        fi
+        
+        if jq -e '.brew_casks' "$backup_file" &>/dev/null; then
+            if confirm "Restore Homebrew casks?"; then
+                info "Installing Homebrew casks..."
+                jq -r '.brew_casks[]' "$backup_file" | while read -r pkg; do
+                    brew install --cask "$pkg" 2>/dev/null || true
+                done
+                success "Homebrew casks restored"
+            fi
+        fi
+    fi
+    
+    echo ""
+    success "Restore complete!"
+}
+
+# ============================================================================
+# Sync Command
+# ============================================================================
+
+# runSync - Sync dotfiles with remote
+runSync() {
+    banner "Dotfiles Sync"
+    
+    cd "$DOTFILES_DIR"
+    
+    # Check for uncommitted changes
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+        warn "You have uncommitted changes"
+        git status --short
+        echo ""
+        
+        if ! confirm "Continue anyway?"; then
+            exit 0
+        fi
+    fi
+    
+    # Fetch from remote
+    info "Fetching from remote..."
+    git fetch
+    
+    # Check status
+    local behind ahead
+    behind=$(git rev-list --count HEAD..@{upstream} 2>/dev/null || echo "0")
+    ahead=$(git rev-list --count @{upstream}..HEAD 2>/dev/null || echo "0")
+    
+    if [[ "$behind" -gt 0 ]]; then
+        info "Pulling $behind commit(s) from remote..."
+        git pull --rebase
+        success "Pulled changes"
+    fi
+    
+    if [[ "$ahead" -gt 0 ]]; then
+        if confirm "Push $ahead commit(s) to remote?"; then
+            git push
+            success "Pushed changes"
+        fi
+    fi
+    
+    if [[ "$behind" -eq 0 ]] && [[ "$ahead" -eq 0 ]]; then
+        success "Already in sync with remote"
+    fi
+}
+
+# ============================================================================
+# Check Command
+# ============================================================================
+
+# checkRepoStatus - Check if repo has uncommitted changes
 checkRepoStatus() {
-	cd "$dotfilesDirectory"
+    cd "$DOTFILES_DIR"
 
-	# Check for uncommitted changes (staged or unstaged)
-	if ! git diff --quiet || ! git diff --cached --quiet; then
-		echo "Error: Uncommitted changes detected in dotfiles repo"
-		git status --short
-		exit 1
-	fi
+    # Check for uncommitted changes (staged or unstaged)
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+        echo "Error: Uncommitted changes detected in dotfiles repo"
+        git status --short
+        exit 1
+    fi
 
-	# Check for untracked files
-	if [ -n "$(git ls-files --others --exclude-standard)" ]; then
-		echo "Error: Untracked files detected in dotfiles repo"
-		git status --short
-		exit 1
-	fi
+    # Check for untracked files
+    if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+        echo "Error: Untracked files detected in dotfiles repo"
+        git status --short
+        exit 1
+    fi
 
-	echo "Dotfiles repo is clean"
-	exit 0
+    echo "Dotfiles repo is clean"
+    exit 0
 }
 
+# ============================================================================
+# List Command
+# ============================================================================
+
+# listCommands - List all available commands in bin directory
 listCommands() {
-	echo "Available commands in bin directory:"
-	echo ""
-	
-	# Find all executable files in the bin directory (including hidden files)
-	for file in "$parentDirectory"/* "$parentDirectory"/.*; do
-		# Skip if not a file or not executable, or if file doesn't exist
-		[ -f "$file" ] && [ -x "$file" ] || continue
-		
-		filename=$(basename "$file")
-		
-		# Skip special directories and the dot command itself
-		[ "$filename" = "." ] || [ "$filename" = ".." ] || [ "$filename" = "dot" ] && continue
-		
-		# Extract description dynamically from the file
-		description=""
-		if [ -f "$file" ]; then
-			# Check if it's a Python script
-			if head -1 "$file" 2>/dev/null | grep -q 'python'; then
-				# Python: Look for line after "Description:" print statement
-				description=$(awk '
-					/print\(.*"Description:"/ { found_desc=1; next }
-					found_desc && /print\(.*"[^"]+/ {
-						gsub(/^[[:space:]]*print\(["'\'']/, "");
-						gsub(/["'\''].*$/, "");
-						gsub(/^[[:space:]]*/, "");
-						if (length($0) > 3) {print $0; exit}
-					}
-				' "$file" 2>/dev/null)
-			else
-				# Shell: Method 1: Look for "Description:" in usage function
-				description=$(awk '/usage\(\)/,/^}/ {
-					if (/Description:/) {
-						getline;
-						gsub(/^[[:space:]]*echo[[:space:]]*"/, "");
-						gsub(/^[[:space:]]*/, "");
-						gsub(/".*$/, "");
-						if (length($0) > 0) print $0;
-						exit
-					}
-				}' "$file" 2>/dev/null)
+    echo "Available commands in bin directory:"
+    echo ""
 
-				# Shell: Method 2: Look for descriptive text after usage line but before Commands/Options
-				if [ -z "$description" ]; then
-					description=$(awk '/usage\(\)/,/^}/ {
-						if (/echo.*Usage:/) { found_usage=1; next }
-						if (found_usage && /echo.*""/) next
-						if (found_usage && (/Commands:|Options:/ || /^[[:space:]]*echo[[:space:]]*"[[:space:]]*$"/)) exit
-						if (found_usage && /echo.*[A-Za-z]/) {
-							gsub(/^[[:space:]]*echo[[:space:]]*"/, "");
-							gsub(/".*$/, "");
-							gsub(/^[[:space:]]*/, "");
-							if (length($0) > 3) {print $0; exit}
-						}
-					}' "$file" 2>/dev/null)
-				fi
-			fi
-		else
-			description="Command-line utility"
-		fi
-		
-		# Format and display
-		printf "  %-12s %s\n" "$filename" "$description"
-	done
-	echo ""
-	echo "Run any command with -h or --help for detailed usage information."
-	exit
+    local bin_dir="$DOTFILES_DIR/bin"
+
+    # Find all executable files in the bin directory (including hidden files)
+    for file in "$bin_dir"/* "$bin_dir"/.*; do
+        # Skip if not a file or not executable, or if file doesn't exist
+        [[ -f "$file" ]] && [[ -x "$file" ]] || continue
+        
+        local filename
+        filename=$(basename "$file")
+        
+        # Skip special directories and the dot command itself
+        [[ "$filename" == "." ]] || [[ "$filename" == ".." ]] || [[ "$filename" == "dot" ]] && continue
+        
+        # Extract description dynamically from the file
+        local description=""
+        if [[ -f "$file" ]]; then
+            # Check if it's a Python script
+            if head -1 "$file" 2>/dev/null | grep -q 'python'; then
+                # Python: Look for line after "Description:" print statement
+                description=$(awk '
+                    /print\(.*"Description:"/ { found_desc=1; next }
+                    found_desc && /print\(.*"[^"]+/ {
+                        gsub(/^[[:space:]]*print\(["'"'"']/, "");
+                        gsub(/["'"'"'].*$/, "");
+                        gsub(/^[[:space:]]*/, "");
+                        if (length($0) > 3) {print $0; exit}
+                    }
+                ' "$file" 2>/dev/null)
+            else
+                # Shell: Method 1: Look for "Description:" in usage function
+                description=$(awk '/usage\(\)/,/^}/ {
+                    if (/Description:/) {
+                        getline;
+                        gsub(/^[[:space:]]*echo[[:space:]]*"/, "");
+                        gsub(/^[[:space:]]*/, "");
+                        gsub(/".*$/, "");
+                        if (length($0) > 0) print $0;
+                        exit
+                    }
+                }' "$file" 2>/dev/null)
+
+                # Shell: Method 2: Look for descriptive text after usage line
+                if [[ -z "$description" ]]; then
+                    description=$(awk '/usage\(\)/,/^}/ {
+                        if (/echo.*Usage:/) { found_usage=1; next }
+                        if (found_usage && /echo.*""/) next
+                        if (found_usage && (/Commands:|Options:/ || /^[[:space:]]*echo[[:space:]]*"[[:space:]]*$"/)) exit
+                        if (found_usage && /echo.*[A-Za-z]/) {
+                            gsub(/^[[:space:]]*echo[[:space:]]*"/, "");
+                            gsub(/".*$/, "");
+                            gsub(/^[[:space:]]*/, "");
+                            if (length($0) > 3) {print $0; exit}
+                        }
+                    }' "$file" 2>/dev/null)
+                fi
+            fi
+        fi
+        
+        # Format and display
+        printf "  %-12s %s\n" "$filename" "$description"
+    done
+    
+    echo ""
+    echo "Run any command with -h or --help for detailed usage information."
+    exit 0
 }
 
-# Flag to track if force update is requested
+# ============================================================================
+# Update Command (Default)
+# ============================================================================
+
+# runUpdate - Update dotfiles and system packages
+runUpdate() {
+    local force_update="${1:-false}"
+    
+    cd "$DOTFILES_DIR"
+    
+    # Update dotfiles themselves
+    echo "› git pull"
+    if [[ "$force_update" == "true" ]]; then
+        # Force pull by discarding local changes
+        git reset --hard HEAD
+        git pull
+    else
+        # Try normal pull first
+        if ! git pull; then
+            echo "Pull failed. Use -f or --force to discard local changes and force update"
+            exit 1
+        fi
+    fi
+
+    # Set macOS defaults if on macOS
+    if is_macos; then
+        if [[ -f "$DOTFILES_DIR/macos/set-defaults.sh" ]]; then
+            "$DOTFILES_DIR/macos/set-defaults.sh"
+        fi
+
+        # Check if brew is installed
+        if command_exists brew; then
+            echo "› brew update"
+            brew update
+
+            echo "› brew upgrade" 
+            brew upgrade
+        else
+            echo "Homebrew not installed. Skipping brew updates."
+        fi
+    fi
+    
+    success "Update complete!"
+}
+
+# ============================================================================
+# Main
+# ============================================================================
+
+# Check if this is the first run
+check_first_run() {
+    if [[ ! -f "${DOTFILES_CONFIG_DIR}/config" ]]; then
+        warn "First time running dot - saving configuration..."
+        save_dotfiles_dir "$DOTFILES_DIR"
+        success "Saved dotfiles location: $DOTFILES_DIR"
+        echo ""
+    fi
+}
+
+# Parse arguments
 force_update=false
 
-while test $# -gt 0; do
-	case "$1" in
-		"-h"|"--help")
-			displayUsageAndExit
-			;;
-		"-c"|"--check")
-			checkRepoStatus
-			;;
-		"-e"|"--edit")
-			exec "$EDITOR" "$dotfilesDirectory"
-			exit
-			;;
-		"-l"|"--list")
-			listCommands
-			;;
-		"-f"|"--force")
-			force_update=true
-			;;
-		"-x")
-			shift
-			if [ -z "$1" ]; then
-				echo "Error: No script specified"
-				exit 1
-			fi
-			script_path="$dotfilesDirectory/scripts/$1"
-			if [ ! -f "$script_path" ]; then
-				echo "Error: Script '$1' not found in scripts directory"
-				exit 1
-			fi
-			if [ ! -x "$script_path" ]; then
-				echo "Error: Script '$1' is not executable"
-				exit 1
-			fi
-			exec "$script_path"
-			;;
-		*)
-			echo "Invalid option: $1"
-			displayUsageAndExit
-			;;
-	esac
-	shift
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            displayUsageAndExit
+            ;;
+        -c|--check)
+            checkRepoStatus
+            ;;
+        -e|--edit)
+            exec "${EDITOR:-vim}" "$DOTFILES_DIR"
+            ;;
+        -l|--list)
+            listCommands
+            ;;
+        -f|--force)
+            force_update=true
+            shift
+            ;;
+        -x)
+            shift
+            if [[ -z "${1:-}" ]]; then
+                echo "Error: No script specified"
+                exit 1
+            fi
+            script_path="$DOTFILES_DIR/scripts/$1"
+            if [[ ! -f "$script_path" ]]; then
+                echo "Error: Script '$1' not found in scripts directory"
+                exit 1
+            fi
+            if [[ ! -x "$script_path" ]]; then
+                echo "Error: Script '$1' is not executable"
+                exit 1
+            fi
+            exec "$script_path"
+            ;;
+        setup)
+            runSetup
+            exit 0
+            ;;
+        status)
+            runStatus
+            exit 0
+            ;;
+        doctor)
+            runDoctor
+            exit 0
+            ;;
+        backup)
+            runBackup
+            exit 0
+            ;;
+        restore)
+            shift
+            runRestore "${1:-}"
+            exit 0
+            ;;
+        sync)
+            runSync
+            exit 0
+            ;;
+        *)
+            echo "Invalid option: $1"
+            displayUsageAndExit
+            ;;
+    esac
+    shift
 done
 
-export ZSH=$dotfilesDirectory
-
-# Update dotfiles themselves
-echo "› git pull"
-if [ "$force_update" = true ]; then
-	# Force pull by discarding local changes
-	git -C "$ZSH" reset --hard HEAD
-	git -C "$ZSH" pull
-else
-	# Try normal pull first
-	if ! git -C "$ZSH" pull; then
-		echo "Pull failed. Use -f or --force to discard local changes and force update"
-		exit 1
-	fi
-fi
-
-# Set macOS defaults if on macOS
-if [ "$OSTYPE" = "darwin"* ]; then
-    $ZSH/macos/set-defaults.sh
-
-    # Check if brew is installed
-    if ! command -v brew >/dev/null 2>&1; then
-        echo "Homebrew not installed. Skipping brew updates."
-    else
-        # Upgrade homebrew
-        echo "› brew update"
-        brew update
-
-        echo "› brew upgrade" 
-        brew upgrade
-    fi
-fi
+# Default action: check first run then update
+check_first_run
+runUpdate "$force_update"
