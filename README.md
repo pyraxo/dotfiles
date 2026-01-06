@@ -2,8 +2,6 @@
 
 Personal dotfiles for macOS (home) and Linux (lab) environments.
 
-[![Lint](https://github.com/YOUR_USERNAME/dotfiles/actions/workflows/lint.yml/badge.svg)](https://github.com/YOUR_USERNAME/dotfiles/actions/workflows/lint.yml)
-
 ## Quick Start
 
 ```bash
@@ -60,8 +58,7 @@ dotfiles/
 ├── config/
 │   └── .zshrc          # Shell configuration
 ├── bin/                # Custom scripts (added to PATH)
-├── scripts/            # Additional setup scripts
-└── .github/workflows/  # CI/CD configuration
+└── scripts/            # Additional setup scripts
 ```
 
 ## CLI Tools
