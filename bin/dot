@@ -36,6 +36,7 @@ displayUsageAndExit() {
     echo "  backup        Create backup of system state"
     echo "  restore       Restore from backup file"
     echo "  sync          Sync dotfiles with remote (pull + push)"
+    echo "  scripts       List available scripts in scripts directory"
     echo ""
     echo "Options:"
     echo "  -c, --check   Check if repo has uncommitted changes (exits 1 if dirty)"
@@ -583,6 +584,65 @@ listCommands() {
 }
 
 # ============================================================================
+# Scripts Command
+# ============================================================================
+
+# runScripts - List all available scripts in scripts directory
+runScripts() {
+    echo "Available scripts in scripts directory:"
+    echo ""
+
+    local scripts_dir="$DOTFILES_DIR/scripts"
+
+    if [[ ! -d "$scripts_dir" ]]; then
+        echo "  No scripts directory found."
+        exit 0
+    fi
+
+    # Find all executable files in the scripts directory
+    local found=false
+    for file in "$scripts_dir"/*; do
+        # Skip if not a file or not executable, or if file doesn't exist
+        [[ -f "$file" ]] && [[ -x "$file" ]] || continue
+
+        found=true
+        local filename
+        filename=$(basename "$file")
+
+        # Extract description from the file
+        # Look for "# <scriptname> - description" pattern or "# Description: ..." line
+        local description=""
+        if [[ -f "$file" ]]; then
+            description=$(awk -v fname="$filename" '
+                NR > 1 && NR <= 15 {
+                    # Match "# scriptname - description" pattern
+                    if ($0 ~ "^#[[:space:]]*" fname "[[:space:]]*[-:]") {
+                        gsub("^#[[:space:]]*" fname "[[:space:]]*[-:][[:space:]]*", "");
+                        print; exit
+                    }
+                    # Match "# Description: ..." pattern
+                    if (/^#[[:space:]]*[Dd]escription:/) {
+                        gsub(/^#[[:space:]]*[Dd]escription:[[:space:]]*/, "");
+                        print; exit
+                    }
+                }
+            ' "$file" 2>/dev/null)
+        fi
+
+        # Format and display
+        printf "  %-20s %s\n" "$filename" "$description"
+    done
+
+    if [[ "$found" == "false" ]]; then
+        echo "  No scripts found."
+    fi
+
+    echo ""
+    echo "Run a script with: dot -x <script_name>"
+    exit 0
+}
+
+# ============================================================================
 # Update Command (Default)
 # ============================================================================
 
@@ -702,6 +762,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         sync)
             runSync
+            exit 0
+            ;;
+        scripts)
+            runScripts
             exit 0
             ;;
         *)
