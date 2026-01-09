@@ -1,0 +1,172 @@
+#!/bin/bash
+#
+# .pc - Project template copier
+#
+# Interactive command to copy project templates to a destination directory.
+# Templates are stored in the projects/ folder of this dotfiles repository.
+
+set -eu
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+PROJECTS_DIR="$SCRIPT_DIR/projects"
+
+# Source shared libraries if available
+if [[ -f "$SCRIPT_DIR/lib/logging.sh" ]]; then
+    # shellcheck source=../lib/logging.sh
+    source "$SCRIPT_DIR/lib/logging.sh"
+else
+    # Fallback colors if lib not available
+    GREEN='\033[0;32m'
+    BLUE='\033[0;34m'
+    YELLOW='\033[1;33m'
+    RED='\033[0;31m'
+    NC='\033[0m'
+fi
+
+# Function to display usage
+usage() {
+    echo "Usage: .pc [options] <project_name>"
+    echo ""
+    echo "Copy a project template to a destination directory."
+    echo ""
+    echo "Arguments:"
+    echo "  <project_name>   Name of the project template to copy"
+    echo ""
+    echo "Options:"
+    echo "  -l, --list       List available project templates"
+    echo "  -h, --help       Show this help message and exit"
+    echo ""
+    echo "Examples:"
+    echo "  .pc mytemplate   Copy 'mytemplate' to current or specified directory"
+    echo "  .pc --list       Show all available project templates"
+    exit 0
+}
+
+# Function to prompt yes/no questions
+ask_yes_no() {
+    local question="$1"
+    local response
+
+    while true; do
+        echo -e "${BLUE}${question} (y/n):${NC} "
+        read -r response
+        case "$response" in
+            [Yy]* ) return 0;;
+            [Nn]* ) return 1;;
+            * ) echo "Please answer y or n.";;
+        esac
+    done
+}
+
+# Function to list available project templates
+list_templates() {
+    echo -e "${BLUE}Available project templates:${NC}\n"
+
+    if [ ! -d "$PROJECTS_DIR" ]; then
+        echo -e "${YELLOW}No projects directory found at $PROJECTS_DIR${NC}"
+        return 1
+    fi
+
+    local found=false
+    for dir in "$PROJECTS_DIR"/*/; do
+        if [ -d "$dir" ]; then
+            local template_name
+            template_name=$(basename "$dir")
+            echo -e "  ${GREEN}•${NC} $template_name"
+            found=true
+        fi
+    done
+
+    if [ "$found" = false ]; then
+        echo -e "${YELLOW}No templates found. Add folders to $PROJECTS_DIR${NC}"
+    fi
+
+    echo ""
+}
+
+# Function to handle project template copying
+copy_template() {
+    local template_name="$1"
+    local template_path="$PROJECTS_DIR/$template_name"
+
+    # Check if template exists
+    if [ ! -d "$template_path" ]; then
+        echo -e "${RED}Error: Template '$template_name' not found${NC}"
+        echo ""
+        list_templates
+        exit 1
+    fi
+
+    # Prompt for destination
+    echo -e "${BLUE}Where would you like to copy '$template_name'?${NC}"
+    echo -e "${YELLOW}(Leave blank for current directory, or enter a path)${NC}"
+    echo -n "> "
+    read -r destination
+
+    # Determine final destination
+    local target_dir
+    if [ -z "$destination" ]; then
+        target_dir="$(pwd)"
+        echo -e "${BLUE}Using current directory: $target_dir${NC}"
+    else
+        # Expand ~ if present
+        destination="${destination/#\~/$HOME}"
+        target_dir="$destination"
+    fi
+
+    # Ask for confirmation
+    echo -e "\n${YELLOW}This will copy files from '$template_name' to:${NC}"
+    echo -e "${GREEN}  $target_dir${NC}\n"
+
+    if ! ask_yes_no "Proceed with copying?"; then
+        echo -e "${YELLOW}Cancelled.${NC}"
+        exit 0
+    fi
+
+    # Create target directory if it doesn't exist
+    mkdir -p "$target_dir"
+
+    # Copy template files (regular files)
+    echo -e "\n${BLUE}Copying template files...${NC}"
+    if compgen -G "$template_path/*" > /dev/null 2>&1; then
+        cp -rv "$template_path/"* "$target_dir/"
+    fi
+
+    # Also copy hidden files if they exist
+    if compgen -G "$template_path/.*" > /dev/null 2>&1; then
+        for hidden in "$template_path"/.[!.]*; do
+            if [ -e "$hidden" ]; then
+                cp -rv "$hidden" "$target_dir/"
+            fi
+        done
+    fi
+
+    echo -e "\n${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}✓ Template '$template_name' copied to $target_dir${NC}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
+}
+
+# Main script logic
+if [ $# -eq 0 ]; then
+    echo -e "${YELLOW}No project name specified.${NC}\n"
+    list_templates
+    echo "Usage: .pc <project_name>"
+    exit 1
+fi
+
+case "$1" in
+    -l|--list)
+        list_templates
+        ;;
+    -h|--help)
+        usage
+        ;;
+    -*)
+        echo -e "${RED}Error: Unknown option '$1'${NC}"
+        usage
+        ;;
+    *)
+        copy_template "$1"
+        ;;
+esac
