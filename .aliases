@@ -1,1 +1,2 @@
 alias .mb='cd ../../packages/apis && npm run build && cd ../taxonomy && npm run build && cd ../prompts && npm run build && cd ../../apps/mastra && rm -rf .mastra && npm run build'
+alias bird='~/bin/bird'

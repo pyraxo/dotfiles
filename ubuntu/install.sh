@@ -33,11 +33,12 @@ PACKAGES=(
     ["uv"]="Python package and project manager (fast)"
     ["bun"]="Fast JavaScript runtime and package manager"
     ["docker"]="Docker container platform and tools"
+    ["tailscale"]="Zero-config VPN for secure network access"
 )
 
 # Create checklist options (package_name "description" status)
 OPTIONS=()
-for pkg in imagemagick redis-server wireguard-tools cmake nmap golang-go build-essential gh cloudflared git-filter-repo volta uv bun docker; do
+for pkg in imagemagick redis-server wireguard-tools cmake nmap golang-go build-essential gh cloudflared git-filter-repo volta uv bun docker tailscale; do
     # Check if already installed
     status="OFF"
     if [[ "$pkg" == "build-essential" ]]; then
@@ -97,7 +98,7 @@ for pkg in $SELECTED; do
         imagemagick|redis-server|wireguard-tools|cmake|nmap|golang-go|build-essential)
             APT_PACKAGES+=("$pkg")
             ;;
-        gh|cloudflared|git-filter-repo|volta|uv|bun|docker)
+        gh|cloudflared|git-filter-repo|volta|uv|bun|docker|tailscale)
             SPECIAL_PACKAGES+=("$pkg")
             ;;
     esac
@@ -213,6 +214,16 @@ Signed-By: /etc/apt/keyrings/docker.asc" | sudo tee /etc/apt/sources.list.d/dock
                 echo -e "${YELLOW}Note: You may need to add your user to the docker group: sudo usermod -aG docker \$USER${NC}"
             else
                 echo -e "${BLUE}Docker already installed${NC}"
+            fi
+            ;;
+        tailscale)
+            if ! command -v tailscale >/dev/null 2>&1; then
+                echo -e "${YELLOW}Installing Tailscale...${NC}"
+                curl -fsSL https://tailscale.com/install.sh | sh
+                echo -e "${GREEN}Tailscale installed successfully${NC}"
+                echo -e "${YELLOW}Note: Run 'sudo tailscale up' to connect to your network${NC}"
+            else
+                echo -e "${BLUE}Tailscale already installed${NC}"
             fi
             ;;
     esac
