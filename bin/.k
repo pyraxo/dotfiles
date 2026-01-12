@@ -223,12 +223,12 @@ list_keys() {
 }
 
 # Main script logic
-case "$1" in
+case "${1:-}" in
     "i")
         interactive_mode
         ;;
     "l")
-        list_keys "$2"
+        list_keys "${2:-}"
         ;;
     "-h"|"--help")
         usage
