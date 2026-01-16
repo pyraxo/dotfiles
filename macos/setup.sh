@@ -65,9 +65,14 @@ main() {
     
     # Install Brewfile packages
     install_brewfile_packages
-    
+
     echo ""
-    
+
+    # Install uv (Python package manager)
+    install_uv
+
+    echo ""
+
     # Install Node.js development stack
     install_volta
     install_nodejs
