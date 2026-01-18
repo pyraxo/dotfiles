@@ -69,7 +69,6 @@ BREW_PACKAGES=(
 # Define cask packages with descriptions
 declare -A CASK_PACKAGES
 CASK_PACKAGES=(
-    ["aerospace"]="Tiling window manager for macOS"
     ["flashspace"]="Workspace manager"
     ["linearmouse"]="Customize mouse/trackpad behavior"
     ["whatsapp"]="WhatsApp desktop application"
@@ -92,7 +91,7 @@ done
 
 # Create options for cask packages
 CASK_OPTIONS=()
-for pkg in aerospace flashspace linearmouse whatsapp raycast vlc android-platform-tools; do
+for pkg in flashspace linearmouse whatsapp raycast vlc android-platform-tools; do
     # Check if already installed
     if brew list --cask "$pkg" &>/dev/null; then
         status="✓"

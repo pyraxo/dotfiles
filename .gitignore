@@ -29,6 +29,7 @@ Temporary Items
 .aliases
 
 .tmp/
+tmp/
 
 # Nix
 result
