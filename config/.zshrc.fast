@@ -1,0 +1,121 @@
+# ============================================================================
+# Fast ZSH Configuration - Portable & Performance-Optimized
+# ============================================================================
+# This config is designed to work on both local machines and remote servers.
+# It gracefully falls back when tools like Starship aren't available.
+
+# ============================================================================
+# Performance: Smart Completions
+# ============================================================================
+# Only rebuild completion cache once per day
+autoload -Uz compinit
+if [[ -n ${ZDOTDIR:-$HOME}/.zcompdump(#qN.mh+24) ]]; then
+  compinit
+else
+  compinit -C
+fi
+
+# ============================================================================
+# Plugin Manager: zsh-snap (if available)
+# ============================================================================
+if [[ -f ~/.zsh-snap/znap.zsh ]]; then
+  source ~/.zsh-snap/znap.zsh
+
+  # Essential plugins (loaded asynchronously)
+  znap source zsh-users/zsh-syntax-highlighting
+  znap source zsh-users/zsh-autosuggestions
+
+  # Git aliases plugin (replaces oh-my-zsh git plugin)
+  znap source ohmyzsh/ohmyzsh plugins/git
+else
+  # Fallback: Basic git aliases when zsh-snap isn't available
+  alias g='git'
+  alias ga='git add'
+  alias gc='git commit -v'
+  alias gco='git checkout'
+  alias gd='git diff'
+  alias gl='git pull'
+  alias gp='git push'
+  alias gst='git status'
+  alias glog='git log --oneline --decorate --graph'
+fi
+
+# ============================================================================
+# Prompt: Starship (if available) or Minimal Fallback
+# ============================================================================
+if (( ${+commands[starship]} )); then
+  eval "$(starship init zsh)"
+else
+  # Fallback: Clean minimal prompt
+  autoload -Uz vcs_info
+  precmd_vcs_info() { vcs_info }
+  precmd_functions+=( precmd_vcs_info )
+  setopt prompt_subst
+  zstyle ':vcs_info:git:*' formats '%F{yellow}(%b)%f '
+  zstyle ':vcs_info:*' enable git
+  PS1='%F{green}%n@%m%f %F{blue}%~%f ${vcs_info_msg_0_}%# '
+fi
+
+# ============================================================================
+# History Configuration
+# ============================================================================
+HISTFILE=~/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
+setopt APPEND_HISTORY
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
+setopt SHARE_HISTORY
+
+# ============================================================================
+# PATH Configuration (Base - machine-specific paths added in main .zshrc)
+# ============================================================================
+# Deduplicate PATH automatically
+typeset -U path
+
+# ============================================================================
+# Completions (cached)
+# ============================================================================
+# Create completion cache directory
+_completion_cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/completions"
+mkdir -p "$_completion_cache_dir"
+
+# UV completions - cached to avoid spawning subprocess every startup
+if (( ${+commands[uv]} )); then
+  _uv_completion="$_completion_cache_dir/_uv"
+  # Regenerate if older than 7 days or doesn't exist
+  if [[ ! -f "$_uv_completion" ]] || [[ $(find "$_uv_completion" -mtime +7 2>/dev/null) ]]; then
+    uv generate-shell-completion zsh > "$_uv_completion" &!
+  fi
+fi
+
+fpath=("$_completion_cache_dir" $fpath)
+
+# ============================================================================
+# Utility Aliases (Cached Command Checks)
+# ============================================================================
+# fd alias on Debian/Ubuntu (cached check - no subprocess)
+if (( ! ${+commands[fd]} )) && (( ${+commands[fdfind]} )); then
+  alias fd='fdfind'
+fi
+
+# Better ls colors if available
+if (( ${+commands[eza]} )); then
+  alias ls='eza'
+  alias ll='eza -l'
+  alias la='eza -la'
+elif (( ${+commands[gls]} )); then
+  # GNU ls on macOS (from coreutils)
+  alias ls='gls --color=auto'
+  alias ll='gls -lh --color=auto'
+  alias la='gls -lah --color=auto'
+else
+  alias ll='ls -lh'
+  alias la='ls -lah'
+fi
+
+# ============================================================================
+# Performance Tips
+# ============================================================================
+# If working in large git repos, uncomment this for faster git status:
+# DISABLE_UNTRACKED_FILES_DIRTY="true"

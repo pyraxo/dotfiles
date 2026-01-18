@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+# ============================================================================
+# Fast ZSH Setup Script
+# ============================================================================
+# Installs zsh-snap and optionally Starship for fast, portable zsh config.
+# Works on both local machines and remote servers.
+#
+# Usage:
+#   ./install-zsh-fast              # Install zsh-snap only
+#   ./install-zsh-fast --starship   # Install zsh-snap + Starship
+#   ./install-zsh-fast --help       # Show help
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Detect dotfiles directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTFILES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Parse arguments
+INSTALL_STARSHIP=false
+SKIP_BACKUP=false
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --starship)
+      INSTALL_STARSHIP=true
+      shift
+      ;;
+    --skip-backup)
+      SKIP_BACKUP=true
+      shift
+      ;;
+    --help|-h)
+      echo "Fast ZSH Setup Script"
+      echo ""
+      echo "Usage: $0 [OPTIONS]"
+      echo ""
+      echo "Options:"
+      echo "  --starship      Also install Starship prompt (requires curl)"
+      echo "  --skip-backup   Skip backing up existing .zshrc"
+      echo "  --help, -h      Show this help message"
+      echo ""
+      echo "This script installs:"
+      echo "  - zsh-snap plugin manager"
+      echo "  - Optionally Starship prompt (with --starship)"
+      echo "  - Configures .zshrc to use dotfiles config"
+      exit 0
+      ;;
+    *)
+      echo -e "${RED}Unknown option: $1${NC}"
+      echo "Use --help for usage information"
+      exit 1
+      ;;
+  esac
+done
+
+echo -e "${BLUE}=== Fast ZSH Setup ===${NC}"
+echo ""
+
+# ============================================================================
+# 1. Install zsh-snap
+# ============================================================================
+echo -e "${YELLOW}[1/4] Installing zsh-snap plugin manager...${NC}"
+
+if [[ -d ~/.zsh-snap ]]; then
+  echo -e "${GREEN}✓ zsh-snap already installed${NC}"
+else
+  git clone --depth 1 https://github.com/marlonrichert/zsh-snap.git ~/.zsh-snap
+  echo -e "${GREEN}✓ zsh-snap installed${NC}"
+fi
+
+echo ""
+
+# ============================================================================
+# 2. Install Starship (optional)
+# ============================================================================
+if [[ "$INSTALL_STARSHIP" == true ]]; then
+  echo -e "${YELLOW}[2/4] Installing Starship prompt...${NC}"
+
+  if command -v starship &> /dev/null; then
+    echo -e "${GREEN}✓ Starship already installed ($(starship --version))${NC}"
+  else
+    # Detect OS and install accordingly
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+      # Linux - use install script
+      if command -v curl &> /dev/null; then
+        curl -sS https://starship.rs/install.sh | sh -s -- -y
+        echo -e "${GREEN}✓ Starship installed${NC}"
+      else
+        echo -e "${RED}✗ curl not found. Please install curl or Starship manually:${NC}"
+        echo -e "  ${BLUE}https://starship.rs/guide/#-installation${NC}"
+      fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+      # macOS - prefer homebrew
+      if command -v brew &> /dev/null; then
+        brew install starship
+        echo -e "${GREEN}✓ Starship installed via Homebrew${NC}"
+      elif command -v curl &> /dev/null; then
+        curl -sS https://starship.rs/install.sh | sh -s -- -y
+        echo -e "${GREEN}✓ Starship installed${NC}"
+      else
+        echo -e "${RED}✗ Neither brew nor curl found. Please install Starship manually:${NC}"
+        echo -e "  ${BLUE}https://starship.rs/guide/#-installation${NC}"
+      fi
+    else
+      echo -e "${YELLOW}! Unknown OS. Please install Starship manually:${NC}"
+      echo -e "  ${BLUE}https://starship.rs/guide/#-installation${NC}"
+    fi
+  fi
+else
+  echo -e "${YELLOW}[2/4] Skipping Starship installation (use --starship to install)${NC}"
+fi
+
+echo ""
+
+# ============================================================================
+# 3. Backup existing .zshrc
+# ============================================================================
+echo -e "${YELLOW}[3/4] Backing up existing .zshrc...${NC}"
+
+if [[ "$SKIP_BACKUP" == true ]]; then
+  echo -e "${BLUE}  Skipping backup (--skip-backup flag)${NC}"
+elif [[ -f ~/.zshrc ]]; then
+  BACKUP_FILE=~/.zshrc.backup-$(date +%Y%m%d-%H%M%S)
+  cp ~/.zshrc "$BACKUP_FILE"
+  echo -e "${GREEN}✓ Backup created: $BACKUP_FILE${NC}"
+else
+  echo -e "${BLUE}  No existing .zshrc to backup${NC}"
+fi
+
+echo ""
+
+# ============================================================================
+# 4. Create/Update .zshrc
+# ============================================================================
+echo -e "${YELLOW}[4/4] Setting up .zshrc...${NC}"
+
+# Detect dotfiles location (might be different on remote server)
+DOTFILES_PATH="$DOTFILES_DIR"
+
+# Create minimal .zshrc that sources dotfiles config
+cat > ~/.zshrc << EOF
+# ============================================================================
+# Machine-Specific ZSH Configuration
+# ============================================================================
+# This file contains machine-specific settings for $(hostname).
+# Shared configuration is in $DOTFILES_PATH/config/.zshrc
+#
+# Generated by: install-zsh-fast on $(date)
+
+# ============================================================================
+# Machine-Specific PATH Configuration
+# ============================================================================
+# Add your machine-specific PATH entries here
+# Example:
+# export VOLTA_HOME="\$HOME/.volta"
+# path=("\$VOLTA_HOME/bin" \$path)
+
+# ============================================================================
+# Machine-Specific Functions & Aliases
+# ============================================================================
+# Add your machine-specific functions and aliases here
+
+# ============================================================================
+# Source Dotfiles Configuration (Shared Config)
+# ============================================================================
+# This sources the fast, portable config from your dotfiles repo
+[[ -f "$DOTFILES_PATH/config/.zshrc" ]] && source "$DOTFILES_PATH/config/.zshrc"
+EOF
+
+echo -e "${GREEN}✓ .zshrc configured to use dotfiles${NC}"
+echo ""
+
+# ============================================================================
+# Summary
+# ============================================================================
+echo -e "${GREEN}=== Installation Complete! ===${NC}"
+echo ""
+echo "What was installed:"
+echo "  ✓ zsh-snap plugin manager (~/.zsh-snap)"
+if [[ "$INSTALL_STARSHIP" == true ]]; then
+  if command -v starship &> /dev/null; then
+    echo "  ✓ Starship prompt"
+  else
+    echo "  ⚠ Starship (please install manually)"
+  fi
+else
+  echo "  - Starship (skipped, will use minimal prompt fallback)"
+fi
+echo "  ✓ .zshrc configured"
+echo ""
+
+echo "Next steps:"
+echo "  1. Customize ~/.zshrc for machine-specific settings (PATH, functions, aliases)"
+echo "  2. Open a new terminal or run: source ~/.zshrc"
+echo "  3. First load will download plugins (one-time, ~5 seconds)"
+echo "  4. Subsequent loads should be ~75-100ms"
+echo ""
+
+if [[ "$INSTALL_STARSHIP" == false ]]; then
+  echo -e "${BLUE}Tip: Run with --starship to install Starship prompt for a better experience${NC}"
+  echo ""
+fi
+
+echo -e "${GREEN}Enjoy your fast ZSH! 🚀${NC}"

@@ -22,6 +22,14 @@ fi
 export DOTFILES_DIR
 
 # ============================================================================
+# Fast ZSH Configuration (Performance-optimized, Portable)
+# ============================================================================
+# Source the fast zsh config (works on local + remote)
+if [[ -f "$DOTFILES_DIR/config/.zshrc.fast" ]]; then
+    source "$DOTFILES_DIR/config/.zshrc.fast"
+fi
+
+# ============================================================================
 # PATH Configuration
 # ============================================================================
 
