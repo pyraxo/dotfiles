@@ -34,11 +34,12 @@ PACKAGES=(
     ["bun"]="Fast JavaScript runtime and package manager"
     ["docker"]="Docker container platform and tools"
     ["tailscale"]="Zero-config VPN for secure network access"
+    ["claude-code"]="Claude Code CLI - AI coding assistant"
 )
 
 # Create checklist options (package_name "description" status)
 OPTIONS=()
-for pkg in imagemagick redis-server wireguard-tools cmake nmap golang-go build-essential gh cloudflared git-filter-repo volta uv bun docker tailscale; do
+for pkg in imagemagick redis-server wireguard-tools cmake nmap golang-go build-essential gh cloudflared git-filter-repo volta uv bun docker tailscale claude-code; do
     # Check if already installed
     status="OFF"
     if [[ "$pkg" == "build-essential" ]]; then
@@ -47,6 +48,10 @@ for pkg in imagemagick redis-server wireguard-tools cmake nmap golang-go build-e
         fi
     elif [[ "$pkg" == "golang-go" ]]; then
         if command -v go >/dev/null 2>&1; then
+            status="ON"
+        fi
+    elif [[ "$pkg" == "claude-code" ]]; then
+        if command -v claude >/dev/null 2>&1; then
             status="ON"
         fi
     elif command -v "${pkg%%-*}" >/dev/null 2>&1 || command -v "$pkg" >/dev/null 2>&1; then
@@ -98,7 +103,7 @@ for pkg in $SELECTED; do
         imagemagick|redis-server|wireguard-tools|cmake|nmap|golang-go|build-essential)
             APT_PACKAGES+=("$pkg")
             ;;
-        gh|cloudflared|git-filter-repo|volta|uv|bun|docker|tailscale)
+        gh|cloudflared|git-filter-repo|volta|uv|bun|docker|tailscale|claude-code)
             SPECIAL_PACKAGES+=("$pkg")
             ;;
     esac
@@ -224,6 +229,15 @@ Signed-By: /etc/apt/keyrings/docker.asc" | sudo tee /etc/apt/sources.list.d/dock
                 echo -e "${YELLOW}Note: Run 'sudo tailscale up' to connect to your network${NC}"
             else
                 echo -e "${BLUE}Tailscale already installed${NC}"
+            fi
+            ;;
+        claude-code)
+            if ! command -v claude >/dev/null 2>&1; then
+                echo -e "${YELLOW}Installing Claude Code CLI...${NC}"
+                curl -fsSL https://claude.ai/install.sh | bash
+                echo -e "${GREEN}Claude Code CLI installed successfully${NC}"
+            else
+                echo -e "${BLUE}Claude Code CLI already installed${NC}"
             fi
             ;;
     esac

@@ -64,6 +64,7 @@ BREW_PACKAGES=(
     ["nmap"]="Network exploration and security auditing"
     ["uv"]="Python package and project manager (fast)"
     ["go"]="Go programming language"
+    ["claude-code"]="Claude Code CLI - AI coding assistant"
 )
 
 # Define cask packages with descriptions
@@ -79,9 +80,15 @@ CASK_PACKAGES=(
 
 # Create options for brew packages
 BREW_OPTIONS=()
-for pkg in cloudflared imagemagick redis wireguard-tools bitwarden-cli cmake gh git-filter-repo nmap uv go; do
+for pkg in cloudflared imagemagick redis wireguard-tools bitwarden-cli cmake gh git-filter-repo nmap uv go claude-code; do
     # Check if already installed
-    if brew list "$pkg" &>/dev/null; then
+    if [[ "$pkg" == "claude-code" ]]; then
+        if command -v claude >/dev/null 2>&1; then
+            status="✓"
+        else
+            status=" "
+        fi
+    elif brew list "$pkg" &>/dev/null; then
         status="✓"
     else
         status=" "
@@ -112,12 +119,18 @@ SELECTED_CASKS=$(printf "%s\n" "${CASK_OPTIONS[@]}" | gum choose --no-limit --he
 
 # Extract package names from selections
 BREW_TO_INSTALL=()
+INSTALL_CLAUDE_CODE=false
 while IFS= read -r line; do
     if [ -n "$line" ]; then
         # Extract package name (remove status and description)
         pkg=$(echo "$line" | sed 's/^[✓ ]* //' | sed 's/ - .*//')
-        # Only add if not already installed
-        if ! brew list "$pkg" &>/dev/null; then
+        # Handle claude-code separately (not a brew package)
+        if [[ "$pkg" == "claude-code" ]]; then
+            if ! command -v claude >/dev/null 2>&1; then
+                INSTALL_CLAUDE_CODE=true
+            fi
+        # Only add if not already installed via brew
+        elif ! brew list "$pkg" &>/dev/null; then
             BREW_TO_INSTALL+=("$pkg")
         fi
     fi
@@ -136,7 +149,7 @@ while IFS= read -r line; do
 done <<< "$SELECTED_CASKS"
 
 # Check if anything needs to be installed
-if [ ${#BREW_TO_INSTALL[@]} -eq 0 ] && [ ${#CASKS_TO_INSTALL[@]} -eq 0 ]; then
+if [ ${#BREW_TO_INSTALL[@]} -eq 0 ] && [ ${#CASKS_TO_INSTALL[@]} -eq 0 ] && [ "$INSTALL_CLAUDE_CODE" = false ]; then
     echo ""
     gum style --foreground 212 "No new packages to install. All selected packages are already installed."
     exit 0
@@ -152,6 +165,10 @@ fi
 if [ ${#CASKS_TO_INSTALL[@]} -gt 0 ]; then
     echo -e "${BLUE}Casks:${NC}"
     printf '  - %s\n' "${CASKS_TO_INSTALL[@]}"
+fi
+if [ "$INSTALL_CLAUDE_CODE" = true ]; then
+    echo -e "${BLUE}Other:${NC}"
+    echo "  - claude-code"
 fi
 echo ""
 
@@ -192,6 +209,17 @@ if [ ${#CASKS_TO_INSTALL[@]} -gt 0 ]; then
             echo -e "${RED}✗ Failed to install $pkg${NC}"
         fi
     done
+fi
+
+# Install Claude Code CLI
+if [ "$INSTALL_CLAUDE_CODE" = true ]; then
+    echo ""
+    echo -e "${YELLOW}Installing Claude Code CLI...${NC}"
+    if curl -fsSL https://claude.ai/install.sh | bash; then
+        echo -e "${GREEN}✓ Claude Code CLI installed successfully${NC}"
+    else
+        echo -e "${RED}✗ Failed to install Claude Code CLI${NC}"
+    fi
 fi
 
 echo ""
