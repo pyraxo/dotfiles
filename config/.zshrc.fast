@@ -15,6 +15,12 @@ else
   compinit -C
 fi
 
+# Completion behavior improvements
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'  # Case-insensitive completion
+setopt MENU_COMPLETE             # Show completions on first tab press
+setopt AUTO_MENU                 # Use menu completion after second tab
+setopt LIST_AMBIGUOUS            # Show all completions if ambiguous
+
 # ============================================================================
 # Plugin Manager: zsh-snap (if available)
 # ============================================================================
@@ -60,12 +66,28 @@ fi
 # History Configuration
 # ============================================================================
 HISTFILE=~/.zsh_history
-HISTSIZE=10000
-SAVEHIST=10000
+HISTSIZE=500000
+SAVEHIST=100000
 setopt APPEND_HISTORY
+setopt EXTENDED_HISTORY          # Add timestamps to history
 setopt HIST_IGNORE_DUPS
 setopt HIST_IGNORE_SPACE
+setopt HIST_EXPIRE_DUPS_FIRST    # Expire duplicates first when trimming history
+setopt HIST_FIND_NO_DUPS         # Don't show duplicates when searching
 setopt SHARE_HISTORY
+
+# History search with up/down arrows (type prefix, then use arrows)
+bindkey '^[[A' history-beginning-search-backward
+bindkey '^[[B' history-beginning-search-forward
+
+# ============================================================================
+# Directory Navigation
+# ============================================================================
+setopt AUTO_CD                   # Type directory name to cd into it
+setopt AUTO_PUSHD                # Make cd push old directory onto stack
+setopt PUSHD_IGNORE_DUPS         # Don't push duplicates onto stack
+setopt CDABLE_VARS               # Use variables as directory names
+setopt CORRECT                   # Correct command typos
 
 # ============================================================================
 # PATH Configuration (Base - machine-specific paths added in main .zshrc)
