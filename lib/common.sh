@@ -55,14 +55,20 @@ install_bun() {
         success "Bun already installed ($(get_version bun))"
         return 0
     fi
-    
+
+    # Bun installer requires unzip
+    if ! command_exists unzip; then
+        warn "Skipping Bun: unzip not installed (required by Bun installer)"
+        return 0
+    fi
+
     info "Installing Bun..."
     # SECURITY: Trusted vendor installation script
     curl -fsSL https://bun.sh/install | bash
-    
+
     export BUN_INSTALL="$HOME/.bun"
     export PATH="$BUN_INSTALL/bin:$PATH"
-    
+
     success "Bun installed"
 }
 

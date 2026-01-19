@@ -56,40 +56,13 @@ if [ "$SETUP_TYPE" = "lab" ]; then
     fi
 fi
 
-# Install Oh My Zsh
-info "Checking for Oh My Zsh..."
-if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    info "Installing Oh My Zsh..."
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-    success "Oh My Zsh installed"
-else
-    success "Oh My Zsh already installed"
-fi
+# Install fast zsh config (zsh-snap + optional Starship)
+info "Setting up fast zsh configuration..."
+bash "$REPO_DIR/scripts/install-zsh-fast" --skip-backup
+success "Fast zsh configuration installed"
 
-# Set up zshrc
+# Add bin to PATH in .zshrc if not already there
 ZSHRC="$HOME/.zshrc"
-REPO_ZSHRC="$REPO_DIR/config/.zshrc"
-
-info "Configuring zsh..."
-if [ -f "$ZSHRC" ] && [ ! -L "$ZSHRC" ]; then
-    if ! grep -q "source $REPO_ZSHRC" "$ZSHRC"; then
-        {
-            echo ""
-            echo "# Source dotfiles repo zshrc"
-            echo "source $REPO_ZSHRC"
-        } >> "$ZSHRC"
-        success "Appended source line to $ZSHRC"
-    else
-        info "Zshrc already configured"
-    fi
-elif [ ! -e "$ZSHRC" ]; then
-    ln -s "$REPO_ZSHRC" "$ZSHRC"
-    success "Created symlink: $ZSHRC -> $REPO_ZSHRC"
-else
-    info "Zshrc symlink already exists"
-fi
-
-# Add bin to PATH
 if ! grep -q "export PATH=\"$REPO_DIR/bin:\$PATH\"" "$ZSHRC"; then
     {
         echo ""
