@@ -64,6 +64,8 @@ BREW_PACKAGES=(
     ["nmap"]="Network exploration and security auditing"
     ["uv"]="Python package and project manager (fast)"
     ["go"]="Go programming language"
+    ["fzf"]="Fuzzy finder for the command line"
+    ["zoxide"]="Smarter cd command (z/zi)"
     ["claude-code"]="Claude Code CLI - AI coding assistant"
 )
 
@@ -80,7 +82,7 @@ CASK_PACKAGES=(
 
 # Create options for brew packages
 BREW_OPTIONS=()
-for pkg in cloudflared imagemagick redis wireguard-tools bitwarden-cli cmake gh git-filter-repo nmap uv go claude-code; do
+for pkg in cloudflared imagemagick redis wireguard-tools bitwarden-cli cmake gh git-filter-repo nmap uv go fzf zoxide claude-code; do
     # Check if already installed
     if [[ "$pkg" == "claude-code" ]]; then
         if command -v claude >/dev/null 2>&1; then
