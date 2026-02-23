@@ -1,11 +1,11 @@
 #!/bin/bash
 #
-# claude-skills - Symlink Claude skills to dotfiles
+# claude-skills - Symlink individual Claude skills to ~/.claude/skills
 #
-# Usage: claude-skills [-D|--delete]
+# Usage: claude-skills [options]
 #
-# Creates a symlink from ~/.claude/skills to the dotfiles skills folder.
-# Use -D or --delete to remove the symlink.
+# Interactively select which skills from the dotfiles repo to symlink
+# into ~/.claude/skills/ as individual folder symlinks.
 
 set -eu
 
@@ -21,116 +21,259 @@ SKILLS_SOURCE="$REPO_DIR/skills"
 SKILLS_TARGET="$CLAUDE_DIR/skills"
 
 usage() {
-    echo "Usage: claude-skills [-D|--delete]"
+    echo "Usage: claude-skills [options]"
+    echo ""
+    echo "Symlink individual Claude skills from dotfiles to ~/.claude/skills/"
     echo ""
     echo "Options:"
-    echo "  -D, --delete    Remove the skills symlink"
+    echo "  -a, --all       Symlink all skills (non-interactive)"
+    echo "  -D, --delete    Remove symlinked skills (interactive)"
+    echo "  -l, --list      List skills and their status"
     echo "  -h, --help      Show this help message"
+    echo ""
+    echo "With no options, interactively select skills to symlink."
 }
 
-delete_symlink() {
+# Get available skills from the repo
+get_repo_skills() {
+    local skills=()
+    for skill_dir in "$SKILLS_SOURCE"/*/; do
+        [ -d "$skill_dir" ] || continue
+        skills+=("$(basename "$skill_dir")")
+    done
+    echo "${skills[@]}"
+}
+
+# Check if a skill is already symlinked correctly
+is_linked() {
+    local name="$1"
+    local target="$SKILLS_TARGET/$name"
+    [ -L "$target" ] && [ "$(readlink "$target")" = "$SKILLS_SOURCE/$name" ]
+}
+
+# Check if a skill target exists but is not our symlink
+is_conflict() {
+    local name="$1"
+    local target="$SKILLS_TARGET/$name"
+    [ -e "$target" ] && ! is_linked "$name"
+}
+
+list_skills() {
+    local skills
+    read -ra skills <<< "$(get_repo_skills)"
+
+    if [ ${#skills[@]} -eq 0 ]; then
+        info "No skills found in $SKILLS_SOURCE"
+        return
+    fi
+
+    echo ""
+    for skill in "${skills[@]}"; do
+        if is_linked "$skill"; then
+            echo -e "  ${GREEN}●${NC} $skill ${DIM}(symlinked)${NC}"
+        elif is_conflict "$skill"; then
+            echo -e "  ${YELLOW}●${NC} $skill ${DIM}(exists, not symlinked)${NC}"
+        else
+            echo -e "  ${DIM}○${NC} $skill ${DIM}(not installed)${NC}"
+        fi
+    done
+    echo ""
+}
+
+ensure_target_dir() {
     if [ -L "$SKILLS_TARGET" ]; then
+        # Whole-directory symlink from old script — migrate
+        local old_target
+        old_target=$(readlink "$SKILLS_TARGET")
+        warn "Found old whole-directory symlink: $SKILLS_TARGET -> $old_target"
         rm "$SKILLS_TARGET"
-        success "Removed symlink: $SKILLS_TARGET"
-    elif [ -e "$SKILLS_TARGET" ]; then
-        fail "$SKILLS_TARGET exists but is not a symlink"
-        exit 1
-    else
-        info "No symlink exists at $SKILLS_TARGET"
+        mkdir -p "$SKILLS_TARGET"
+        success "Converted to directory: $SKILLS_TARGET"
+    elif [ ! -d "$SKILLS_TARGET" ]; then
+        mkdir -p "$SKILLS_TARGET"
     fi
 }
 
-create_symlink() {
-    # Ensure source exists
-    if [ ! -d "$SKILLS_SOURCE" ]; then
-        die "Skills directory not found: $SKILLS_SOURCE"
+link_skill() {
+    local name="$1"
+    local source="$SKILLS_SOURCE/$name"
+    local target="$SKILLS_TARGET/$name"
+
+    if is_linked "$name"; then
+        info "$name already symlinked"
+        return
     fi
 
-    # Create ~/.claude if it doesn't exist
-    if [ ! -d "$CLAUDE_DIR" ]; then
-        mkdir -p "$CLAUDE_DIR"
-        info "Created directory: $CLAUDE_DIR"
-    fi
-
-    # Handle existing target
-    if [ -L "$SKILLS_TARGET" ]; then
-        current_target=$(readlink "$SKILLS_TARGET")
-        if [ "$current_target" = "$SKILLS_SOURCE" ]; then
-            success "Symlink already exists: $SKILLS_TARGET -> $SKILLS_SOURCE"
+    if is_conflict "$name"; then
+        warn "$name exists at $target but is not a symlink from dotfiles"
+        read -p "  Replace it? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            info "Skipped $name"
             return
-        else
-            warn "Removing existing symlink pointing to: $current_target"
-            rm "$SKILLS_TARGET"
         fi
-    elif [ -e "$SKILLS_TARGET" ]; then
-        if [ -d "$SKILLS_TARGET" ]; then
-            warn "$SKILLS_TARGET exists and is not a symlink."
-            echo ""
-
-            # Check for skills in the directory
-            skill_count=0
-            for skill in "$SKILLS_TARGET"/*; do
-                if [ -d "$skill" ]; then
-                    if [ $skill_count -eq 0 ]; then
-                        info "Found the following skills:"
-                    fi
-                    echo "  - $(basename "$skill")"
-                    ((skill_count++))
-                fi
-            done
-
-            if [ $skill_count -gt 0 ]; then
-                echo ""
-                read -p "Move these skills to $SKILLS_SOURCE? [y/N] " -n 1 -r
-                echo
-                if [[ $REPLY =~ ^[Yy]$ ]]; then
-                    # Move all directories to the skills source
-                    for skill in "$SKILLS_TARGET"/*; do
-                        if [ -d "$skill" ]; then
-                            skill_name=$(basename "$skill")
-                            if [ -d "$SKILLS_SOURCE/$skill_name" ]; then
-                                warn "Skipping $skill_name (already exists in $SKILLS_SOURCE)"
-                            else
-                                mv "$skill" "$SKILLS_SOURCE/"
-                                success "Moved $skill_name"
-                            fi
-                        fi
-                    done
-
-                    # Remove any remaining files and the directory
-                    rm -rf "$SKILLS_TARGET"
-                    success "Removed $SKILLS_TARGET"
-                else
-                    info "Aborted. Please handle $SKILLS_TARGET manually."
-                    exit 1
-                fi
-            else
-                # Directory is empty, just remove it
-                rmdir "$SKILLS_TARGET"
-                info "Removed empty directory: $SKILLS_TARGET"
-            fi
-        else
-            warn "$SKILLS_TARGET exists but is not a symlink or directory."
-            info "Please remove it manually: rm $SKILLS_TARGET"
-            exit 1
-        fi
+        rm -rf "$target"
     fi
 
-    # Create the symlink
-    ln -s "$SKILLS_SOURCE" "$SKILLS_TARGET"
-    success "Created symlink: $SKILLS_TARGET -> $SKILLS_SOURCE"
+    ln -s "$source" "$target"
+    success "Linked $name"
+}
+
+unlink_skill() {
+    local name="$1"
+    local target="$SKILLS_TARGET/$name"
+
+    if is_linked "$name"; then
+        rm "$target"
+        success "Unlinked $name"
+    elif [ -e "$target" ]; then
+        warn "$name exists but is not a dotfiles symlink, skipping"
+    else
+        info "$name is not installed"
+    fi
+}
+
+interactive_link() {
+    local skills
+    read -ra skills <<< "$(get_repo_skills)"
+
+    if [ ${#skills[@]} -eq 0 ]; then
+        info "No skills found in $SKILLS_SOURCE"
+        return
+    fi
+
+    echo ""
+    info "Available skills in dotfiles:"
+    echo ""
+
+    local i=1
+    for skill in "${skills[@]}"; do
+        if is_linked "$skill"; then
+            echo -e "  ${DIM}$i) $skill (already linked)${NC}"
+        elif is_conflict "$skill"; then
+            echo -e "  ${YELLOW}$i) $skill (conflict)${NC}"
+        else
+            echo "  $i) $skill"
+        fi
+        ((i++))
+    done
+
+    echo ""
+    echo "  a) All skills"
+    echo "  q) Quit"
+    echo ""
+    read -rp "  Select skills (comma-separated numbers, 'a' for all): " selection
+
+    if [[ "$selection" == "q" ]]; then
+        return
+    fi
+
+    ensure_target_dir
+
+    if [[ "$selection" == "a" ]]; then
+        for skill in "${skills[@]}"; do
+            link_skill "$skill"
+        done
+        return
+    fi
+
+    IFS=',' read -ra choices <<< "$selection"
+    for choice in "${choices[@]}"; do
+        choice=$(echo "$choice" | tr -d ' ')
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#skills[@]} ]; then
+            link_skill "${skills[$((choice - 1))]}"
+        else
+            warn "Invalid selection: $choice"
+        fi
+    done
+}
+
+interactive_delete() {
+    local linked=()
+    local skills
+    read -ra skills <<< "$(get_repo_skills)"
+
+    for skill in "${skills[@]}"; do
+        if is_linked "$skill"; then
+            linked+=("$skill")
+        fi
+    done
+
+    if [ ${#linked[@]} -eq 0 ]; then
+        info "No symlinked skills to remove"
+        return
+    fi
+
+    echo ""
+    info "Currently symlinked skills:"
+    echo ""
+
+    local i=1
+    for skill in "${linked[@]}"; do
+        echo "  $i) $skill"
+        ((i++))
+    done
+
+    echo ""
+    echo "  a) All"
+    echo "  q) Quit"
+    echo ""
+    read -rp "  Select skills to remove (comma-separated numbers, 'a' for all): " selection
+
+    if [[ "$selection" == "q" ]]; then
+        return
+    fi
+
+    if [[ "$selection" == "a" ]]; then
+        for skill in "${linked[@]}"; do
+            unlink_skill "$skill"
+        done
+        return
+    fi
+
+    IFS=',' read -ra choices <<< "$selection"
+    for choice in "${choices[@]}"; do
+        choice=$(echo "$choice" | tr -d ' ')
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#linked[@]} ]; then
+            unlink_skill "${linked[$((choice - 1))]}"
+        else
+            warn "Invalid selection: $choice"
+        fi
+    done
+}
+
+link_all() {
+    local skills
+    read -ra skills <<< "$(get_repo_skills)"
+
+    if [ ${#skills[@]} -eq 0 ]; then
+        info "No skills found in $SKILLS_SOURCE"
+        return
+    fi
+
+    ensure_target_dir
+
+    for skill in "${skills[@]}"; do
+        link_skill "$skill"
+    done
 }
 
 # Parse arguments
 case "${1:-}" in
+    -a|--all)
+        link_all
+        ;;
     -D|--delete)
-        delete_symlink
+        interactive_delete
+        ;;
+    -l|--list)
+        list_skills
         ;;
     -h|--help)
         usage
         ;;
     "")
-        create_symlink
+        interactive_link
         ;;
     *)
         fail "Unknown option: $1"

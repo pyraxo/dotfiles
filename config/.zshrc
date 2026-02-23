@@ -49,10 +49,6 @@ if [[ -f "$DOTFILES_DIR/.aliases" ]]; then
     source "$DOTFILES_DIR/.aliases"
 fi
 
-# Claude Code shortcuts
-alias .cc='claude --dangerously-skip-permissions'
-alias .ccc='claude --continue --dangerously-skip-permissions'
-
 # ============================================================================
 # Auto-load .env files (optional, enable if you want direnv-like behavior)
 # ============================================================================

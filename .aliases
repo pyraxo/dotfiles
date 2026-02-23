@@ -1,1 +1,4 @@
 alias .mb="cd ../../packages/apis && npm run build && cd ../taxonomy && npm run build && cd ../prompts && npm run build && cd ../fga && npm run build && cd ../db && npm run build && cd ../../apps/mastra && rm -rf .mastra && npm run build && npm run dev"
+alias .cc='claude --dangerously-skip-permissions'
+alias .ccc='claude --continue --dangerously-skip-permissions'
+alias .cx="codex --full-auto"
