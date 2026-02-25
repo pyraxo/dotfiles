@@ -52,7 +52,12 @@ main() {
     
     # Install Bun
     install_bun
-    
+
+    echo ""
+
+    # Install AI tools
+    install_claude_code
+
     echo ""
     success "Linux (lab) setup complete!"
     echo ""

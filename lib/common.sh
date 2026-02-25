@@ -118,6 +118,21 @@ install_codex_cli() {
     success "Codex CLI installed"
 }
 
+# install_claude_code - Install Claude Code CLI
+# Usage: install_claude_code
+install_claude_code() {
+    if command_exists claude; then
+        success "Claude Code already installed"
+        return 0
+    fi
+
+    info "Installing Claude Code..."
+    # SECURITY: Trusted vendor installation script
+    curl -fsSL https://claude.ai/install.sh | bash
+
+    success "Claude Code installed"
+}
+
 # setup_node_stack - Install complete Node.js development stack
 # Usage: setup_node_stack
 setup_node_stack() {
@@ -129,4 +144,4 @@ setup_node_stack() {
 
 # Export functions
 export -f install_volta install_nodejs install_pnpm install_bun \
-       install_uv install_codex_cli setup_node_stack 2>/dev/null || true
+       install_uv install_codex_cli install_claude_code setup_node_stack 2>/dev/null || true
