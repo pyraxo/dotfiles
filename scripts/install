@@ -63,10 +63,6 @@ if ! command -v zsh >/dev/null 2>&1; then
     fi
 fi
 
-info "Installing omz..."
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-success "omz installed"
-
 # 1. Ensure ~/.zshrc sources repo's config/.zshrc or is a symlink
 if [ -f "$ZSHRC" ] && [ ! -L "$ZSHRC" ]; then
     # Check if it already sources the repo zshrc
