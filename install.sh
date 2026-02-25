@@ -56,6 +56,16 @@ if [ "$SETUP_TYPE" = "lab" ]; then
     fi
 fi
 
+# Set zsh as default shell if it isn't already
+ZSH_PATH="$(which zsh)"
+if [ "$SHELL" != "$ZSH_PATH" ]; then
+    info "Setting zsh as default shell..."
+    chsh -s "$ZSH_PATH"
+    success "Default shell set to zsh"
+else
+    success "zsh is already the default shell"
+fi
+
 # Install fast zsh config (zsh-snap + optional Starship)
 info "Setting up fast zsh configuration..."
 bash "$REPO_DIR/scripts/install-zsh-fast" --skip-backup
