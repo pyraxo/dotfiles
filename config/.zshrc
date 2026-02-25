@@ -41,7 +41,15 @@ if [[ ":$PATH:" != *":$DOTFILES_DIR/bin:"* ]]; then
     export PATH="$DOTFILES_DIR/bin:$PATH"
 fi
 
-export PATH="$HOME/bin:$PATH"
+# Tool-specific paths
+export VOLTA_HOME="$HOME/.volta"
+path=(
+    "$HOME/bin"
+    "$HOME/.local/bin"
+    "$VOLTA_HOME/bin"
+    "$HOME/.bun/bin"
+    $path
+)
 
 # ============================================================================
 # Aliases
