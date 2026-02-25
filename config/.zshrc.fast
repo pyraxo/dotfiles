@@ -4,6 +4,9 @@
 # This config is designed to work on both local machines and remote servers.
 # It gracefully falls back when tools like Starship aren't available.
 
+# Guard: only run under zsh
+[[ -z "$ZSH_VERSION" ]] && return
+
 # ============================================================================
 # Performance: Smart Completions
 # ============================================================================

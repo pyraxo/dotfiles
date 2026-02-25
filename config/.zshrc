@@ -2,6 +2,9 @@
 #
 # This file is sourced by ~/.zshrc to configure the dotfiles environment.
 
+# Guard: only run under zsh
+[[ -z "$ZSH_VERSION" ]] && return
+
 # ============================================================================
 # Dotfiles Directory Detection
 # ============================================================================
