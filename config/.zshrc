@@ -43,11 +43,13 @@ fi
 
 # Tool-specific paths
 export VOLTA_HOME="$HOME/.volta"
+export PNPM_HOME="$HOME/.local/share/pnpm"
 path=(
     "$HOME/bin"
     "$HOME/.local/bin"
     "$VOLTA_HOME/bin"
     "$HOME/.bun/bin"
+    "$PNPM_HOME"
     $path
 )
 
