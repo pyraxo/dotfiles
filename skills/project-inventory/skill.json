@@ -1,0 +1,8 @@
+{
+  "name": "project-inventory",
+  "description": "Scan and maintain an inventory of all projects in your Projects folder",
+  "version": "1.0.0",
+  "instructions": "You are helping the user maintain a living inventory of all their projects. Scan the ~/Projects directory and create/update a PROJECT_INVENTORY.md file with detailed information about each project including: description, tech stack, git info, last modified date, and identify stubs. When the user runs /project-inventory, execute the inventory script and present the results.",
+  "enabled": true,
+  "userInvocable": true
+}
