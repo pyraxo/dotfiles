@@ -85,9 +85,10 @@ main() {
     
     echo ""
     
-    # Install Codex CLI
+    # Install AI tools
     install_codex_cli
-    
+    install_claude_code
+
     echo ""
     success "macOS (home) setup complete!"
 }
