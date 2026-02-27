@@ -89,50 +89,6 @@ install_uv() {
     success "uv installed"
 }
 
-# install_codex_cli - Install OpenAI Codex CLI
-# Usage: install_codex_cli
-install_codex_cli() {
-    if command_exists codex; then
-        success "Codex CLI already installed"
-        return 0
-    fi
-    
-    require_command npm "npm is required. Install Node.js first."
-    
-    info "Installing Codex CLI..."
-    
-    # Configure npm to use global directory in user home to avoid permission issues
-    if [[ ! -d "$HOME/.npm-global" ]]; then
-        mkdir -p "$HOME/.npm-global"
-        npm config set prefix "$HOME/.npm-global"
-        
-        # Add to PATH if not already there
-        if ! grep -q 'npm-global/bin' "$HOME/.zshrc" 2>/dev/null; then
-            echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.zshrc"
-        fi
-    fi
-    
-    export PATH="$HOME/.npm-global/bin:$PATH"
-    npm install -g @openai/codex
-    
-    success "Codex CLI installed"
-}
-
-# install_claude_code - Install Claude Code CLI
-# Usage: install_claude_code
-install_claude_code() {
-    if command_exists claude; then
-        success "Claude Code already installed"
-        return 0
-    fi
-
-    info "Installing Claude Code..."
-    # SECURITY: Trusted vendor installation script
-    curl -fsSL https://claude.ai/install.sh | bash
-
-    success "Claude Code installed"
-}
-
 # setup_node_stack - Install complete Node.js development stack
 # Usage: setup_node_stack
 setup_node_stack() {
@@ -144,4 +100,4 @@ setup_node_stack() {
 
 # Export functions
 export -f install_volta install_nodejs install_pnpm install_bun \
-       install_uv install_codex_cli install_claude_code setup_node_stack 2>/dev/null || true
+       install_uv setup_node_stack 2>/dev/null || true

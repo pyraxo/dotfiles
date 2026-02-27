@@ -86,8 +86,7 @@ main() {
     echo ""
     
     # Install AI tools
-    install_codex_cli
-    install_claude_code
+    bash "$REPO_DIR/macos/ai-setup.sh"
 
     echo ""
     success "macOS (home) setup complete!"

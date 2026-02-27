@@ -56,7 +56,7 @@ main() {
     echo ""
 
     # Install AI tools
-    install_claude_code
+    bash "$REPO_DIR/ubuntu/ai-setup.sh"
 
     echo ""
     success "Linux (lab) setup complete!"
